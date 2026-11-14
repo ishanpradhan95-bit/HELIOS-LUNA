@@ -1,0 +1,6 @@
+imagecodecs==2026.11.11
+numpy==2.5.4
+pillow==13.0.0
+pyshp==3.1.8
+spiceypy==8.4.0
+tifffile==2026.11.12

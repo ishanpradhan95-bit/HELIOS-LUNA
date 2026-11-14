@@ -1,0 +1,8 @@
+{
+  "note": "Deep Space Network reference antennas (approximate geodetic positions, WGS84). Editable: add stations by appending entries.",
+  "stations": [
+    { "id": "DSS-14", "name": "Goldstone", "lat": 35.4259, "lon": -116.8895, "heightM": 1001 },
+    { "id": "DSS-63", "name": "Madrid", "lat": 40.4272, "lon": -4.2500, "heightM": 865 },
+    { "id": "DSS-43", "name": "Canberra", "lat": -35.4015, "lon": 148.9813, "heightM": 692 }
+  ]
+}
