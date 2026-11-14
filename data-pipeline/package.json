@@ -1,0 +1,6 @@
+{
+  "name": "@helios-luna/data-pipeline",
+  "private": true,
+  "type": "module",
+  "description": "Offline bake and validation scripts; run from the repository root (see Makefile)."
+}

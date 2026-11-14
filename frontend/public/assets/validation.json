@@ -1,0 +1,601 @@
+{
+ "generated": "2026-11-14T10:30:02.263Z",
+ "tests": [
+  {
+   "id": 1,
+   "name": "Sun / Earth topocentric az, el",
+   "reference": "SPICE (DE440, MOON_ME, LT+S) direct evaluation at 24 random off-grid epochs × 4 sites",
+   "threshold": "max error < 0.001°",
+   "result": "max error 0.00009° (includes hourly linear interpolation and Float32 storage)",
+   "pass": true,
+   "detail": "The reference is SPICE itself at the exact epoch; JPL Horizons cross-check not yet run."
+  },
+  {
+   "id": 2,
+   "name": "Horizon algorithm vs analytic cases",
+   "reference": "Bare-sphere dip angle (closed form); Gaussian hill vs 2 m brute-force 3-D scan",
+   "threshold": "error < 0.01°",
+   "result": "worst error 0.00035°: bare sphere z=0 m: -0.0002° vs dip 0.0000°; bare sphere z=2 m: -0.0869° vs dip -0.0869°; bare sphere z=10 m: -0.1944° vs dip -0.1944°; bare sphere z=50 m: -0.4347° vs dip -0.4347°; Gaussian hill (H=1500 m, 14 km) z=2 m: 5.9423° vs brute 5.9426°; Gaussian hill (H=1500 m, 14 km) z=10 m: 5.9092° vs brute 5.9096°",
+   "pass": true
+  },
+  {
+   "id": 3,
+   "name": "Convergence: azimuth resolution and reach",
+   "reference": "Same site and 29.5-day window re-run at 180/360/720/1440 azimuths and 35/100/200/300 km",
+   "threshold": "report the curve",
+   "result": "Coarse settings (180 az, 35 km) change the sunlit % by up to 5.8 points vs this app at the largest-effect site",
+   "pass": true,
+   "detail": "Curves are shown below the table."
+  },
+  {
+   "id": 4,
+   "name": "Atlas vs point engine",
+   "reference": "500 random cells × 6 azimuths across all 10 regions (Sun layer, 2 m)",
+   "threshold": "within the 8-bit quantisation step",
+   "result": "3000/3000 within ½ step (+0.002°); worst 0.50 steps",
+   "pass": true,
+   "detail": "Each cell is evaluated against its own region's terrain tiles (overlapping regions can otherwise pick different tiles at their shared edge). Both come from the same march code; this guards the bake pipeline, bit layout and region/cell indexing (the cell latitude and longitude are re-derived independently)."
+  },
+  {
+   "id": 5,
+   "name": "Long-term average illumination and Earth visibility",
+   "reference": "PGDA AVGVISIB_85S_060M_201608 (Sun) and _EARTH, 720 points at 85–90°S; ours = 2-hourly 2026–2044, any part of the disc visible, z = 0",
+   "threshold": "|bias| < 2 points and r > 0.95, Sun and Earth",
+   "result": "Sun: bias -0.74 pts, RMSE 4.45, r = 0.954 (r = 0.939 excluding permanently-dark pairs, n = 662). Earth: bias -0.88 pts, RMSE 5.21, r = 0.985 (r = 0.964 excl. dark, n = 488)",
+   "pass": true,
+   "detail": "Not independent of this app’s terrain (same LOLA source) but independent in code and method: PGDA used its own 60 m DEM and horizon code. Differences include 60 m vs 20/40 m terrain, nearest-pixel sampling and a 19- vs 18.6-year span."
+  },
+  {
+   "id": 6,
+   "name": "Independent time-specific check (LROC WAC frames)",
+   "reference": "12 WAC polar movie frames at their UTC (one per ~30 days, fixed rule), 1500 points within 38 km of the pole; image lit = per-frame Otsu DN threshold; predicted lit = Sun disc > 50%, z = 0",
+   "threshold": "pooled MCC > 0.6; mirrored-azimuth and +7-day-shift controls each < 0.3",
+   "result": "pooled MCC = 0.815 (mean of frames 0.822); controls: mirrored azimuth 0.246, date +7 d 0.147. With a fixed DN > 10 threshold instead of Otsu: 0.907. Orientation scan best = identity (0.815)",
+   "pass": true,
+   "detail": "Frames are uncontrolled mosaics (geolocation can be off by a few hundred metres) and a few minutes of orbit time long. The image orientation was fixed from the time-averaged maps (see prep_imagery.py), not tuned on these frames."
+  },
+  {
+   "id": 7,
+   "name": "Performance budget",
+   "reference": "Node v24.22.3, arm64, single thread (browser worker figures will differ; measure on target devices)",
+   "threshold": "horizon < 50 ms; height change < 16 ms",
+   "result": "horizon median 45 ms (1440 az, 300 km); height slider 0.03 ms; 7-day analysis 1 ms; 19-year context 47 ms",
+   "pass": true
+  },
+  {
+   "id": 8,
+   "name": "Exact mast height: obstruction envelope",
+   "reference": "Full re-march with the observer physically raised to each height (exact 3-D elevation)",
+   "threshold": "error < 0.01° at every height 0.5–50 m",
+   "result": "envelope worst error 0.00000°; a quadratic fit through the baked 0/5/20 m layers was off by up to 2.312° on the same rays",
+   "pass": true,
+   "detail": "6 sites × 8 azimuths × 11 heights."
+  },
+  {
+   "id": 9,
+   "name": "Exploratory: published per-site sunlight days (Wueller et al. 2026)",
+   "reference": "Zenodo 10.5281/zenodo.17084058 SunDays26–32, 78 Artemis III sites × 7 midsummers (n=546)",
+   "threshold": "none (inconclusive by construction)",
+   "result": "INCONCLUSIVE. Spearman ρ = 0.12 / 0.25 against two pre-declared metrics of ours, but 5 of 78 sites share one identical 7-year sequence (the published counts saturate at a window length) and vary strongly by year while each site's own sunlit % is stable year to year. The published window cannot be reconstructed from the dataset description, so no agreement or disagreement is claimed.",
+   "pass": null,
+   "detail": "Our metrics (declared before looking): longest continuous sunlit run and sunlit days within 30 days centred on 21 Dec, disc > 50%, 2 m."
+  },
+  {
+   "id": 10,
+   "name": "Imagery-derived illumination (LROC WAC percent-lit map)",
+   "reference": "WAC_POLE_ILL_PCT_SOUTH_100M, 3807 WAC images 2010-02-15 – 2011-02-05, 600 points at 88.7–90°S; ours = hourly over the same dates (2010 SPICE ephemeris), z = 0",
+   "threshold": "|bias| < 3 points and r > 0.9 (fixed before running)",
+   "result": "Sun disc > 50% visible: bias +0.09 pts, RMSE 2.72, r = 0.976 (excl. dark: 0.965). Sensitivity: any part visible: bias +1.88, r = 0.970; > 90% visible: bias -1.12, r = 0.977",
+   "pass": true,
+   "detail": "Truly independent measurement: the reference is counted from real camera images, not modelled. WAC sampling is not uniform in time (documented bias), and the product thresholds image brightness, so some offset is expected."
+  }
+ ],
+ "convergence": [
+  {
+   "site": "MMA01",
+   "rows": [
+    {
+     "label": "180 az, 35 km (coarse)",
+     "sunPct": 46.41864389831616,
+     "maxHorizon": 5.765549182891846
+    },
+    {
+     "label": "360 az, 35 km",
+     "sunPct": 46.401420747039126,
+     "maxHorizon": 5.765549182891846
+    },
+    {
+     "label": "360 az, 100 km",
+     "sunPct": 46.401420747039126,
+     "maxHorizon": 5.765549182891846
+    },
+    {
+     "label": "720 az, 200 km",
+     "sunPct": 46.41517014012509,
+     "maxHorizon": 5.765549182891846
+    },
+    {
+     "label": "1440 az, 300 km (this app)",
+     "sunPct": 46.412745032506855,
+     "maxHorizon": 5.765549182891846
+    }
+   ]
+  },
+  {
+   "site": "HW01",
+   "rows": [
+    {
+     "label": "180 az, 35 km (coarse)",
+     "sunPct": 71.02273223608584,
+     "maxHorizon": 3.992605447769165
+    },
+    {
+     "label": "360 az, 35 km",
+     "sunPct": 70.983537550999,
+     "maxHorizon": 4.021201133728027
+    },
+    {
+     "label": "360 az, 100 km",
+     "sunPct": 67.48065897859229,
+     "maxHorizon": 4.021201133728027
+    },
+    {
+     "label": "720 az, 200 km",
+     "sunPct": 65.23884839790931,
+     "maxHorizon": 4.021201133728027
+    },
+    {
+     "label": "1440 az, 300 km (this app)",
+     "sunPct": 65.22947049199533,
+     "maxHorizon": 4.021201133728027
+    }
+   ]
+  },
+  {
+   "site": "NR101",
+   "rows": [
+    {
+     "label": "180 az, 35 km (coarse)",
+     "sunPct": 90.31670411244971,
+     "maxHorizon": 1.9317642450332642
+    },
+    {
+     "label": "360 az, 35 km",
+     "sunPct": 90.2909399437755,
+     "maxHorizon": 1.953059196472168
+    },
+    {
+     "label": "360 az, 100 km",
+     "sunPct": 90.2909399437755,
+     "maxHorizon": 1.953059196472168
+    },
+    {
+     "label": "720 az, 200 km",
+     "sunPct": 88.21200737088398,
+     "maxHorizon": 1.953059196472168
+    },
+    {
+     "label": "1440 az, 300 km (this app)",
+     "sunPct": 88.20878936620403,
+     "maxHorizon": 1.953059196472168
+    }
+   ]
+  },
+  {
+   "site": "PCB01",
+   "rows": [
+    {
+     "label": "180 az, 35 km (coarse)",
+     "sunPct": 43.93845110075873,
+     "maxHorizon": 8.681337356567383
+    },
+    {
+     "label": "360 az, 35 km",
+     "sunPct": 43.953034747770126,
+     "maxHorizon": 8.683164596557617
+    },
+    {
+     "label": "360 az, 100 km",
+     "sunPct": 43.953034747770126,
+     "maxHorizon": 8.683164596557617
+    },
+    {
+     "label": "720 az, 200 km",
+     "sunPct": 42.32171510956592,
+     "maxHorizon": 8.683724403381348
+    },
+    {
+     "label": "1440 az, 300 km (this app)",
+     "sunPct": 42.32520754935778,
+     "maxHorizon": 8.684612274169922
+    }
+   ]
+  }
+ ],
+ "gaps": [
+  "Test 1 compares the browser interpolation to SPICE evaluated directly, not to JPL Horizons output; the SPICE kernels are the same source Horizons uses.",
+  "Test 5 caveats: the pooled correlation is helped by pooling regions of different brightness; per-domain Sun r is below 0.95 for pole 88.7–90°S (Sun r = 0.940, bias +0.4); Haworth (Sun r = 0.873, bias -2.5); Nobile Rim 1 (Sun r = 0.902, bias -2.0). Our Sun average is lower than PGDA's in 6 of 7 domains, and by 3.3 points in the brightest bin (PGDA 47.9% vs ours 44.6%, n = 46). The cause is not isolated (candidates: PGDA’s 60 m DEM and horizon reach, our 300 km reach, nearest-pixel sampling).",
+  "Test 6 caveats: the controls are low in the pooled data but not in every frame: 2 of 12 frames have a control MCC above 0.3 (max 0.41), because polar horizons have partly mirror-like structure. We predict more lit area than the thresholded image shows in 8 of 12 frames (by up to 5 points), consistent with a conservative image threshold and grazing-incidence pixels that are geometrically lit but dark in the image. The frames are uncontrolled mosaics; no registration correction was applied.",
+  "Test 9: the published SunDays metric saturates and is tied to a window we cannot reproduce, so it does not validate or invalidate our illumination numbers."
+ ],
+ "external": {
+  "pgda": {
+   "sun": {
+    "n": 720,
+    "bias": -0.7365731364849898,
+    "rmse": 4.445995134660293,
+    "r": 0.9535137169412291,
+    "rLit": 0.9394082438329013,
+    "nLit": 662,
+    "meanOurs": 22.927193530181675,
+    "meanRef": 23.66376666666666
+   },
+   "earth": {
+    "n": 720,
+    "bias": -0.8833455074041634,
+    "rmse": 5.210277412794732,
+    "r": 0.9849457459530202,
+    "rLit": 0.9641040821200757,
+    "nLit": 488,
+    "meanOurs": 32.483032270373634,
+    "meanRef": 33.36637777777781
+   },
+   "byDomain": [
+    {
+     "domain": "pole 88.7–90°S",
+     "n": 300,
+     "sunBias": 0.41982521275871754,
+     "sunR": 0.9401221113099058,
+     "earthBias": -0.08121168778043528,
+     "earthR": 0.9804854323880573
+    },
+    {
+     "domain": "Malapert Massif",
+     "n": 70,
+     "sunBias": -1.5410598905915251,
+     "sunR": 0.963084619574797,
+     "earthBias": -1.5181434139630474,
+     "earthR": 0.9889532702028238
+    },
+    {
+     "domain": "Haworth",
+     "n": 70,
+     "sunBias": -2.4595558750019313,
+     "sunR": 0.8733575809291101,
+     "earthBias": -2.3743347213240202,
+     "earthR": 0.959587239927713
+    },
+    {
+     "domain": "Slater Plain",
+     "n": 70,
+     "sunBias": -1.0993511868023689,
+     "sunR": 0.9886754256539471,
+     "earthBias": -1.3148226632335736,
+     "earthR": 0.9834580559434332
+    },
+    {
+     "domain": "de Gerlache Rim 2",
+     "n": 70,
+     "sunBias": -1.2681648448502734,
+     "sunR": 0.9543887873571623,
+     "earthBias": -0.6816024386185533,
+     "earthR": 0.9855279342303104
+    },
+    {
+     "domain": "Mons Mouton",
+     "n": 70,
+     "sunBias": -1.054910859022942,
+     "sunR": 0.9837670780313617,
+     "earthBias": -0.965846001993303,
+     "earthR": 0.9934489718956147
+    },
+    {
+     "domain": "Nobile Rim 1",
+     "n": 70,
+     "sunBias": -1.9523890879710735,
+     "sunR": 0.9015223036043423,
+     "earthBias": -1.883040175108459,
+     "earthR": 0.9913635391445609
+    }
+   ],
+   "calibrationSun": [
+    {
+     "bin": "0–2%",
+     "n": 78,
+     "ref": 0.2976410256410257,
+     "ours": 0.8372997656010179
+    },
+    {
+     "bin": "2–10%",
+     "n": 84,
+     "ref": 6.031190476190479,
+     "ours": 7.10407471385629
+    },
+    {
+     "bin": "10–20%",
+     "n": 137,
+     "ref": 15.820262773722623,
+     "ours": 15.33569814526371
+    },
+    {
+     "bin": "20–30%",
+     "n": 151,
+     "ref": 25.43017218543046,
+     "ours": 24.904666981945077
+    },
+    {
+     "bin": "30–45%",
+     "n": 224,
+     "ref": 37.03776785714287,
+     "ours": 35.405893571179845
+    },
+    {
+     "bin": "45–100%",
+     "n": 46,
+     "ref": 47.91921739130434,
+     "ours": 44.630699215888754
+    }
+   ],
+   "calibrationEarth": [
+    {
+     "bin": "0–2%",
+     "n": 241,
+     "ref": 0.023485477178423236,
+     "ours": 0.18444723054867457
+    },
+    {
+     "bin": "2–10%",
+     "n": 18,
+     "ref": 5.956222222222223,
+     "ours": 5.860154153841639
+    },
+    {
+     "bin": "10–20%",
+     "n": 30,
+     "ref": 14.734000000000002,
+     "ours": 12.525886878244616
+    },
+    {
+     "bin": "20–30%",
+     "n": 30,
+     "ref": 24.777466666666673,
+     "ours": 21.527235757714035
+    },
+    {
+     "bin": "30–45%",
+     "n": 90,
+     "ref": 38.482533333333315,
+     "ours": 38.10656548069341
+    },
+    {
+     "bin": "45–100%",
+     "n": 311,
+     "ref": 61.93616720257235,
+     "ours": 60.40728008037445
+    }
+   ]
+  },
+  "wacPct": {
+   "s50": {
+    "n": 600,
+    "bias": 0.08534339963956426,
+    "rmse": 2.7211053744796616,
+    "r": 0.9760048164155092,
+    "rLit": 0.9651946016638483,
+    "nLit": 482,
+    "meanOurs": 14.046322378716741,
+    "meanRef": 13.960978979077177
+   },
+   "s0": {
+    "n": 600,
+    "bias": 1.8811767329728988,
+    "rmse": 3.7441087481825117,
+    "r": 0.9703551481283315,
+    "rLit": 0.9582117146531579,
+    "nLit": 488,
+    "meanOurs": 15.842155712050069,
+    "meanRef": 13.960978979077177
+   },
+   "s90": {
+    "n": 600,
+    "bias": -1.1249461152274158,
+    "rmse": 2.8927468126708327,
+    "r": 0.976806849929778,
+    "rLit": 0.9672475268068444,
+    "nLit": 481,
+    "meanOurs": 12.836032863849747,
+    "meanRef": 13.960978979077177
+   },
+   "calibration": [
+    {
+     "bin": "0–2%",
+     "n": 140,
+     "ref": 0.27115808813167686,
+     "ours": 0.4693158953722333
+    },
+    {
+     "bin": "2–10%",
+     "n": 124,
+     "ref": 5.6237874223339945,
+     "ours": 5.909340451310012
+    },
+    {
+     "bin": "10–20%",
+     "n": 129,
+     "ref": 14.811092768528665,
+     "ours": 15.111729810386878
+    },
+    {
+     "bin": "20–30%",
+     "n": 125,
+     "ref": 24.49041647338867,
+     "ours": 24.492018779342732
+    },
+    {
+     "bin": "30–45%",
+     "n": 69,
+     "ref": 35.97241291101428,
+     "ours": 35.313159148125465
+    },
+    {
+     "bin": "45–100%",
+     "n": 4,
+     "ref": 46.811524391174316,
+     "ours": 45.451877934272304
+    }
+   ]
+  },
+  "frames": {
+   "rows": [
+    {
+     "frame": "WAC_MOVIE_S20100301T0126",
+     "utc": "2010-03-01T01:29Z",
+     "otsuDN": 44,
+     "points": 1479,
+     "litImagePct": 1.7579445571331982,
+     "litPredictedPct": 1.8255578093306288,
+     "mcc": 0.7888132177177393,
+     "mccMirrored": -0.0189177231125537,
+     "mccShifted7d": 0.050728679539033913
+    },
+    {
+     "frame": "WAC_MOVIE_S20100402T1354",
+     "utc": "2010-04-02T13:57Z",
+     "otsuDN": 58,
+     "points": 1500,
+     "litImagePct": 1.2,
+     "litPredictedPct": 1.2666666666666666,
+     "mcc": 0.9182510395403577,
+     "mccMirrored": 0.06408186712647003,
+     "mccShifted7d": 0.012958556108465571
+    },
+    {
+     "frame": "WAC_MOVIE_S20100501T0947",
+     "utc": "2010-05-01T09:50Z",
+     "otsuDN": 65,
+     "points": 1500,
+     "litImagePct": 1.8666666666666667,
+     "litPredictedPct": 2.2,
+     "mcc": 0.8859861844863159,
+     "mccMirrored": -0.0183173668324321,
+     "mccShifted7d": 0.03678291876981885
+    },
+    {
+     "frame": "WAC_MOVIE_S20100601T0250",
+     "utc": "2010-06-01T02:53Z",
+     "otsuDN": 59,
+     "points": 1496,
+     "litImagePct": 3.2754010695187166,
+     "litPredictedPct": 4.3449197860962565,
+     "mcc": 0.8265867466771006,
+     "mccMirrored": 0.13464669217467184,
+     "mccShifted7d": 0.03374849755762443
+    },
+    {
+     "frame": "WAC_MOVIE_S20100630T1915",
+     "utc": "2010-06-30T19:18Z",
+     "otsuDN": 63,
+     "points": 1500,
+     "litImagePct": 5.066666666666666,
+     "litPredictedPct": 7.733333333333333,
+     "mcc": 0.7979778783303038,
+     "mccMirrored": 0.07582709261204354,
+     "mccShifted7d": -0.0132924278655162
+    },
+    {
+     "frame": "WAC_MOVIE_S20100731T1211",
+     "utc": "2010-07-31T12:14Z",
+     "otsuDN": 64,
+     "points": 1500,
+     "litImagePct": 7.8,
+     "litPredictedPct": 11,
+     "mcc": 0.8193880972271554,
+     "mccMirrored": 0.11055213959665867,
+     "mccShifted7d": 0.09126811513034767
+    },
+    {
+     "frame": "WAC_MOVIE_S20100831T0314",
+     "utc": "2010-08-31T03:17Z",
+     "otsuDN": 70,
+     "points": 1500,
+     "litImagePct": 10.333333333333334,
+     "litPredictedPct": 14.733333333333333,
+     "mcc": 0.816664810045443,
+     "mccMirrored": 0.16664567099512734,
+     "mccShifted7d": 0.20999418425647073
+    },
+    {
+     "frame": "WAC_MOVIE_S20100930T2009",
+     "utc": "2010-09-30T20:12Z",
+     "otsuDN": 79,
+     "points": 1201,
+     "litImagePct": 9.159034138218152,
+     "litPredictedPct": 14.071606994171523,
+     "mcc": 0.77635670718526,
+     "mccMirrored": 0.3195353782134848,
+     "mccShifted7d": 0.27387201335024297
+    },
+    {
+     "frame": "WAC_MOVIE_S20101030T1233",
+     "utc": "2010-10-30T12:36Z",
+     "otsuDN": 88,
+     "points": 1239,
+     "litImagePct": 11.541565778853915,
+     "litPredictedPct": 16.384180790960453,
+     "mcc": 0.81600834550546,
+     "mccMirrored": 0.26854884771096,
+     "mccShifted7d": 0.221160396475616
+    },
+    {
+     "frame": "WAC_MOVIE_S20101130T0528",
+     "utc": "2010-11-30T05:31Z",
+     "otsuDN": 67,
+     "points": 1500,
+     "litImagePct": 12.133333333333333,
+     "litPredictedPct": 16.4,
+     "mcc": 0.8279662981124587,
+     "mccMirrored": 0.2550578907134187,
+     "mccShifted7d": 0.19782516136752296
+    },
+    {
+     "frame": "WAC_MOVIE_S20101230T2159",
+     "utc": "2010-12-30T22:02Z",
+     "otsuDN": 64,
+     "points": 1500,
+     "litImagePct": 10,
+     "litPredictedPct": 14.466666666666667,
+     "mcc": 0.8041997871525849,
+     "mccMirrored": 0.281790870877626,
+     "mccShifted7d": 0.19437039575580603
+    },
+    {
+     "frame": "WAC_MOVIE_S20110130T1451",
+     "utc": "2011-01-30T14:54Z",
+     "otsuDN": 75,
+     "points": 1320,
+     "litImagePct": 9.469696969696969,
+     "litPredictedPct": 14.393939393939394,
+     "mcc": 0.7813684165624605,
+     "mccMirrored": 0.414452685941604,
+     "mccShifted7d": 0.12214320050889592
+    }
+   ],
+   "pooledMcc": {
+    "real": 0.8153583100395301,
+    "mirrored": 0.24638260445546628,
+    "shifted7d": 0.14653584145068863,
+    "fixedThreshold10": 0.9070816214866172
+   },
+   "orientationScan": {
+    "identity": 0.8153583100395301,
+    "flipud": 0.09153079959883115,
+    "fliplr": 0.10083530200936082,
+    "rot180": 0.0014285047431757986,
+    "transpose": 0.10164534809773418,
+    "transpose+flipud": 0.0388834349093839,
+    "transpose+fliplr": 0.004354455910266217,
+    "transpose+rot180": 0.18855125009578366
+   }
+  }
+ }
+}

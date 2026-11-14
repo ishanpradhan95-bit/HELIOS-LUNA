@@ -1,14 +1,28 @@
 {
   "name": "helios-luna",
   "private": true,
-  "version": "0.1.0",
+  "version": "2.0.0",
   "workspaces": [
     "frontend"
   ],
   "scripts": {
+    "setup": "node scripts/setup-assets.mjs",
+    "predev": "node scripts/setup-assets.mjs --if-missing",
     "dev": "npm --workspace frontend run dev",
+    "prebuild": "node scripts/setup-assets.mjs --if-missing",
     "build": "npm --workspace frontend run build",
-    "typecheck": "npm --workspace frontend run typecheck",
-    "preview": "npm --workspace frontend run preview"
+    "prepreview": "node scripts/setup-assets.mjs --if-missing",
+    "typecheck": "npm --workspace frontend run typecheck && tsc --noEmit -p data-pipeline",
+    "preview": "npm --workspace frontend run preview",
+    "bake:horizons": "tsx data-pipeline/bake_horizons.ts",
+    "validate": "tsx data-pipeline/validate.ts",
+    "validate:quick": "tsx data-pipeline/validate.ts --quick",
+    "pack:assets": "node scripts/pack-assets.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "prettier": "^3.10.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
   }
 }
