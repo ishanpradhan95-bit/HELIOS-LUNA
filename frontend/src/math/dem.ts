@@ -4,6 +4,10 @@ export interface GridMeta {
   res: number;
   x0: number;
   y0: number;
+  type?: 'cylindrical';
+  ppd?: number;
+  nLon?: number;
+  nLat?: number;
 }
 export interface DemMeta {
   R: number;
@@ -44,26 +48,86 @@ export class Grid {
   get halfExtent() {
     return ((this.n - 1) * this.res) / 2;
   }
+  private _max: number | null = null;
+  /** Highest valid height in the grid (m). */
+  get maxHeight(): number {
+    if (this._max == null) {
+      let mx = -32768;
+      const d = this.data;
+      for (let i = 0; i < d.length; i++) if (d[i] > mx) mx = d[i];
+      this._max = mx * 0.5;
+    }
+    return this._max;
+  }
+}
+
+/** Global simple-cylindrical LOLA grid (LDEM_16: 1/16 deg, ~1.9 km), Int16 @ 0.5 m relative to 1737.4 km.
+ *  Row 0 is centred on latitude 90 - 1/(2 ppd), column 0 on east longitude 1/(2 ppd). Serves sites anywhere on the Moon. */
+export class GlobalGrid {
+  readonly res: number;
+  constructor(
+    public ppd: number,
+    public nLon: number,
+    public nLat: number,
+    public data: Int16Array,
+  ) {
+    this.res = (Math.PI * 1737400) / 180 / ppd;
+  }
+  /** Bilinear height (m) at planetocentric lat, east lon (degrees). */
+  heightLL(lat: number, lon: number): number {
+    const p = this.ppd,
+      r = Math.min(this.nLat - 1.0001, Math.max(0, (90 - lat) * p - 0.5)),
+      cRaw = (((lon % 360) + 360) % 360) * p - 0.5,
+      c = cRaw < 0 ? cRaw + this.nLon : cRaw;
+    const i = Math.floor(c),
+      j = Math.floor(r),
+      fx = c - i,
+      fy = r - j,
+      i1 = i + 1 === this.nLon ? 0 : i + 1,
+      d = this.data,
+      n = this.nLon;
+    return (
+      0.5 *
+      (d[j * n + i] * (1 - fx) * (1 - fy) +
+        d[j * n + i1] * fx * (1 - fy) +
+        d[(j + 1) * n + i] * (1 - fx) * fy +
+        d[(j + 1) * n + i1] * fx * fy)
+    );
+  }
+  /** Height at a unit vector in MOON_ME. */
+  heightN(x: number, y: number, z: number): number {
+    return this.heightLL((Math.asin(Math.max(-1, Math.min(1, z))) * 180) / Math.PI, (Math.atan2(y, x) * 180) / Math.PI);
+  }
+  private _max: number | null = null;
+  get maxHeight(): number {
+    if (this._max == null) {
+      let mx = -32768;
+      for (let i = 0; i < this.data.length; i++) if (this.data[i] > mx) mx = this.data[i];
+      this._max = mx * 0.5;
+    }
+    return this._max;
+  }
 }
 
 /** The DEM pyramid for one observer region: near 20 m (<5 km), mid 120 m (5-40 km), global-mid 240 m, far 480 m (>40 km, to 70 S). */
 export class Pyramid {
   levels: [Grid[], Grid[], Grid[]]; // by distance class: <5 km, 5-40 km, >40 km
   all: Grid[];
-  hmax = 7200; // highest terrain anywhere in the far grid (m); used for early exit
+  /** Upper bound on terrain height in any grid the march can sample (m); the march's early exit relies on it. */
+  hmax: number;
   constructor(
     public regionId: string | null,
     public near: Grid | null,
     public mid: Grid | null,
     public midGlobal: Grid,
     public far: Grid,
+    /** whole-Moon fallback, attached only for observers whose 300 km reach leaves the polar grids */
+    public global: GlobalGrid | null = null,
   ) {
     const f = (a: (Grid | null)[]) => a.filter(Boolean) as Grid[];
     this.levels = [f([near, mid, midGlobal, far]), f([mid, midGlobal, far]), f([far])];
     this.all = f([near, mid, midGlobal, far]);
-    let mx = -1e9;
-    for (let i = 0; i < far.data.length; i += 7) if (far.data[i] > mx && far.data[i] !== -32768) mx = far.data[i];
-    this.hmax = mx * 0.5 + 300;
+    this.hmax = Math.max(...this.all.map((g) => g.maxHeight), global ? global.maxHeight : -Infinity) + 1;
   }
   surfaceHeight(x: number, y: number): number {
     for (const g of this.all) {
@@ -71,6 +135,11 @@ export class Pyramid {
       if (!Number.isNaN(h)) return h;
     }
     return NaN;
+  }
+  /** Height at a unit vector: polar grids first, then the global grid. */
+  surfaceAtN(n: ArrayLike<number>, x: number, y: number): number {
+    const h = this.surfaceHeight(x, y);
+    return Number.isNaN(h) && this.global ? this.global.heightN(n[0], n[1], n[2]) : h;
   }
   /** Which grid a point is best served by (for provenance / the "approximate" warning). */
   finestAt(x: number, y: number): Grid | null {

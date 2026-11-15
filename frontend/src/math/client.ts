@@ -8,7 +8,45 @@ export interface InitInfo {
   ephStart: number;
   ephEnd: number;
 }
+export interface Transition {
+  up: boolean;
+  next: number | null;
+  then: number | null;
+}
+export interface Events {
+  t: number;
+  searchedTo: number;
+  sun: Transition;
+  earth: Transition;
+  link: Transition;
+  at: { sunEl: number; sunAz: number; earthEl: number; earthAz: number; fSun: number; mask: number };
+}
+export interface LandingWindow {
+  startMs: number;
+  endMs: number;
+  sunElMin: number;
+  sunElMax: number;
+  bestSun: number;
+  bestDte: number;
+}
+export interface Zone {
+  points: {
+    dx: number;
+    dy: number;
+    lat: number;
+    lon: number;
+    slope: number;
+    sun: number;
+    dte: number;
+    dark: number;
+    outage: number;
+    ok: boolean;
+  }[];
+  diameterM: number;
+  quality: string;
+}
 export interface AnalyzeResult {
+  events: Events;
   summary: Summary;
   series: Series;
   horizon: Float32Array;
@@ -115,6 +153,31 @@ export class EngineClient {
       cfg,
       req,
     });
+  }
+  events(ref: SiteRef, cfg: Config, t: number, days?: number) {
+    return this.call<Events>('events', { ref, cfg, t, days });
+  }
+  windows(
+    ref: SiteRef,
+    cfg: Config,
+    req: Requirements,
+    start: number,
+    days: number,
+    dur: number,
+    opt: { sunElMin: number; sunElMax: number; descentH: number },
+  ) {
+    return this.call<{ windows: LandingWindow[]; searchedFrom: number; searchedTo: number }>('windows', {
+      ref,
+      cfg,
+      req,
+      start,
+      days,
+      dur,
+      opt,
+    });
+  }
+  zone(ref: SiteRef, win: Window, cfg: Config, req: Requirements, d: number) {
+    return this.call<Zone>('zone', { ref, win, cfg, req, d });
   }
   bodies(start: number, n: number, stepMs: number) {
     return this.call<Float32Array>('bodies', { start, n, stepMs });

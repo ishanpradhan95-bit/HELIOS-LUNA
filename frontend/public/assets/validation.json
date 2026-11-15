@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-14T10:30:02.263Z",
+ "generated": "2026-11-15T10:44:59.074Z",
  "tests": [
   {
    "id": 1,
@@ -8,7 +8,7 @@
    "threshold": "max error < 0.001°",
    "result": "max error 0.00009° (includes hourly linear interpolation and Float32 storage)",
    "pass": true,
-   "detail": "The reference is SPICE itself at the exact epoch; JPL Horizons cross-check not yet run."
+   "detail": "The reference is SPICE itself at the exact epoch; test 12 repeats the check against JPL Horizons."
   },
   {
    "id": 2,
@@ -59,7 +59,7 @@
    "name": "Performance budget",
    "reference": "Node v24.22.3, arm64, single thread (browser worker figures will differ; measure on target devices)",
    "threshold": "horizon < 50 ms; height change < 16 ms",
-   "result": "horizon median 45 ms (1440 az, 300 km); height slider 0.03 ms; 7-day analysis 1 ms; 19-year context 47 ms",
+   "result": "horizon median 46 ms (1440 az, 300 km); height slider 0.03 ms; 7-day analysis 1 ms; 19-year context 50 ms",
    "pass": true
   },
   {
@@ -88,6 +88,24 @@
    "result": "Sun disc > 50% visible: bias +0.09 pts, RMSE 2.72, r = 0.976 (excl. dark: 0.965). Sensitivity: any part visible: bias +1.88, r = 0.970; > 90% visible: bias -1.12, r = 0.977",
    "pass": true,
    "detail": "Truly independent measurement: the reference is counted from real camera images, not modelled. WAC sampling is not uniform in time (documented bias), and the product thresholds image brightness, so some offset is expected."
+  },
+  {
+   "id": 11,
+   "name": "Deep Space Network link geometry",
+   "reference": "SPICE by a separate route (constant-position station in ITRF93, LT+S) at 300 random epochs 2026–2044 × 3 stations × 6 sites",
+   "threshold": "lander-side error < 0.01°; station-side elevation error < 0.02°",
+   "result": "max lander-side error 0.0003°, max station elevation error 0.0070° (900 pairs); link decision at default masks agrees 900/900",
+   "pass": true,
+   "detail": "Checks the station positions, the ITRF93→MOON_ME rotation and both elevation masks used for every “Earth link” number. Stations are taken as fixed WGS84 points (no polar motion, UT1 from the predicted Earth orientation kernel)."
+  },
+  {
+   "id": 12,
+   "name": "Sun / Earth positions vs NASA/JPL Horizons",
+   "reference": "JPL Horizons API (DE441), observer on the lunar surface (coord@301, MEAN_ME, airless), 72 off-grid epochs × 6 sites incl. Apollo 15 and the far side; retrieved 2026-11-14",
+   "threshold": "angular error < 0.01°",
+   "result": "max angular error 0.00012° over 144 Sun and Earth directions (worst: South pole, Shackleton rim earth 2036-09-22T04:22)",
+   "pass": true,
+   "detail": "Horizons is the system the challenge names; it uses DE441 and its own frame and light-time code, so this is an independent end-to-end check of the baked ephemeris, frames and topocentric geometry."
   }
  ],
  "convergence": [
@@ -213,7 +231,6 @@
   }
  ],
  "gaps": [
-  "Test 1 compares the browser interpolation to SPICE evaluated directly, not to JPL Horizons output; the SPICE kernels are the same source Horizons uses.",
   "Test 5 caveats: the pooled correlation is helped by pooling regions of different brightness; per-domain Sun r is below 0.95 for pole 88.7–90°S (Sun r = 0.940, bias +0.4); Haworth (Sun r = 0.873, bias -2.5); Nobile Rim 1 (Sun r = 0.902, bias -2.0). Our Sun average is lower than PGDA's in 6 of 7 domains, and by 3.3 points in the brightest bin (PGDA 47.9% vs ours 44.6%, n = 46). The cause is not isolated (candidates: PGDA’s 60 m DEM and horizon reach, our 300 km reach, nearest-pixel sampling).",
   "Test 6 caveats: the controls are low in the pooled data but not in every frame: 2 of 12 frames have a control MCC above 0.3 (max 0.41), because polar horizons have partly mirror-like structure. We predict more lit area than the thresholded image shows in 8 of 12 frames (by up to 5 points), consistent with a conservative image threshold and grazing-incidence pixels that are geometrically lit but dark in the image. The frames are uncontrolled mosaics; no registration correction was applied.",
   "Test 9: the published SunDays metric saturates and is tied to a window we cannot reproduce, so it does not validate or invalidate our illumination numbers."

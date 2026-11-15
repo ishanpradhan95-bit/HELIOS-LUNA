@@ -13,3 +13,12 @@ analysis performed beforehand was characterising the *references themselves* (or
 Orientation of all WAC rasters: identity, chosen by correlating the WAC percent map with PGDA's map under the 8 dihedral
 transforms (r = 0.944 vs ≤ 0.22 for the rest). This is independent of the frame comparison and was re-scanned on the frames as a check.
 Results, including failures, are written to `frontend/public/assets/validation.json` unchanged.
+
+## Added later: test 11, Deep Space Network link geometry
+
+Not part of the pre-declared set above. `dsn_reference.py` evaluates, with SPICE and without the app's code, each
+station's azimuth and elevation from the lander (`spkcpt`, station as a constant ITRF93 point, LT+S) and the lander's
+elevation above each station's WGS84 horizon (`spkcpo`, LT+S), at 300 random epochs in 2026–2044 for six sites. The app
+uses the baked apparent Earth vector plus the station offset rotated by the baked ITRF93→MOON_ME quaternion at the
+same epoch, which ignores the 1.3 s light time in Earth's rotation (about 0.005° at the station). Pass: lander-side
+error < 0.01°, station-side elevation error < 0.02°.

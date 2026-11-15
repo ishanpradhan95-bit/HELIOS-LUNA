@@ -326,15 +326,21 @@ export function Trust() {
             300 km, DEM extended to 70°S.
           </li>
           <li>
-            Points outside the nine regions use 240 m terrain near the site and are flagged <i>coarse</i>.
+            Points outside the nine regions use 240 m polar terrain (flagged <i>240 m</i>); sites away from the south
+            pole (Apollo, Chang'e, CLPS mare targets) use the LOLA global grid LDEM_16 at about 1.9 km, which captures
+            mountains on the horizon but not boulders or small craters near the lander.
+          </li>
+          <li>
+            <b>No atmosphere, no refraction.</b> The horizon is the terrain itself or the limb of the sphere; a body is
+            up when its disc clears that line (JPL Horizons reports the same airless geometry).
           </li>
           <li>
             Maps use “Earth centre above horizon”, 1° azimuth bins, and no eclipse; the cell inspector re-evaluates with
             the exact point engine.
           </li>
           <li>
-            Ephemeris: SPICE DE440 baked hourly 2026–2044, linearly interpolated (chord error ≈ 0.0007°). Dates outside
-            are clamped.
+            Ephemeris: SPICE DE440 baked hourly for 2026–2044 and interpolated between hours (largest error against
+            SPICE in test 1: under 0.001°). Arrival dates are limited to that span.
           </li>
           <li>
             Illumination is checked against PGDA long-term averages (tests 5) and LROC WAC imagery (tests 6, 10), but
@@ -357,8 +363,8 @@ export function Trust() {
         <h3>Data &amp; sources</h3>
         <ul className="small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
           <li>
-            LOLA gridded data records, polar stereographic: imbrium.mit.edu (PDS Geosciences Node), LDEM_80S_20M and
-            LDEM_60S_240M.
+            LOLA gridded data records (PDS Geosciences Node mirror at imbrium.mit.edu): polar stereographic LDEM_80S_20M
+            and LDEM_60S_240M, global simple-cylindrical LDEM_16.
           </li>
           <li>
             SPICE: NAIF DE440s, lunar PCK <code>moon_pa_de440_200625.bpc</code>, frame kernel{' '}
@@ -368,6 +374,13 @@ export function Trust() {
             Candidate sites: Wueller et al. 2026, JGR Planets 131(3) e2025JE009434; dataset Zenodo
             10.5281/zenodo.17084058 (CC-BY-4.0). Region centres, representative-site choice and the Shackleton teaching
             site are ours.
+          </li>
+          <li>
+            Ephemeris cross-check: NASA/JPL Horizons API (DE441), observer on the lunar surface (validation test 12).
+          </li>
+          <li>
+            Mission landing sites: published lander positions (mostly LROC NAC measurements) for Apollo, Luna, Chang'e,
+            Chandrayaan-3, SLIM and Intuitive Machines; announced targets are approximate.
           </li>
           <li>
             Method lineage: Mazarico et al. 2011 (horizon method); Barker et al. 2021 (5 m LOLA DEMs); NASA Artemis III

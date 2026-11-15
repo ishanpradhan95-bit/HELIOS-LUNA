@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore, client, BASE, DAY } from '../store/useStore';
 import { AreaEngine, Atlas } from '../gl/areaEngine';
-import { fmtDate, fmtH, viridis, viridisCss } from './common';
+import { Tip, fmtDate, fmtH, viridis, viridisCss } from './common';
 import { fromStereo, latLonFromN, toStereo, siteFrame } from '../math/geo';
 import type { AnalyzeResult } from '../math/client';
 
@@ -20,9 +20,14 @@ export function MapView() {
   const eng = useRef<AreaEngine | null>(null);
   const atlas = useRef<Atlas | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [region, setRegion] = useState<string>(
-    s.regions.find((r) => r.id === (s.analyses[s.selected]?.meta.region ?? ''))?.id ?? 'MMA',
-  );
+  // follow the selected site's region (catalogue membership first, then the region the engine used for it)
+  const selRegion =
+    s.regions.find((r) => !r.hidden && r.sites.some((x) => x.id === s.selected))?.id ??
+    s.regions.find((r) => !r.hidden && r.id === s.analyses[s.selected]?.meta.region)?.id;
+  const [region, setRegion] = useState<string>(selRegion ?? 'MMA');
+  useEffect(() => {
+    if (selRegion) setRegion(selRegion);
+  }, [selRegion]);
   const [metric, setMetric] = useState<Metric>('sun');
   const [data, setData] = useState<Uint8Array | null>(null);
   const [msg, setMsg] = useState('Loading the horizon atlas…'),
@@ -121,19 +126,61 @@ export function MapView() {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(off, 0, 0, c.width, c.height);
     const m = atlas.current.meta;
-    for (const st of reg?.sites ?? []) {
+    // catalogue sites, plus any site in the sidebar list that falls inside this region (selected one ringed)
+    const pts = new Map<string, { lat: number; lon: number }>();
+    for (const st of reg?.sites ?? []) pts.set(st.id, st);
+    for (const st of s.sites) pts.set(st.id, st);
+    for (const [id, st] of pts) {
       const [x, y] = toStereo(siteFrame(st.lat, st.lon).n),
         col = (x - m.cx) / m.res + (CELLS - 1) / 2 + 0.5,
         row = (m.cy - y) / m.res + (CELLS - 1) / 2 + 0.5;
       if (col < 0 || col > CELLS || row < 0 || row > CELLS) continue;
+      const sel = id === s.selected;
       ctx.beginPath();
-      ctx.arc(col * SCALE, row * SCALE, 3.5, 0, 7);
-      ctx.fillStyle = '#fff';
+      ctx.arc(col * SCALE, row * SCALE, sel ? 5 : 3.5, 0, 7);
+      ctx.fillStyle = sel ? '#8ab4ff' : '#fff';
       ctx.fill();
       ctx.strokeStyle = '#000';
       ctx.lineWidth = 1;
       ctx.stroke();
+      if (sel) {
+        ctx.beginPath();
+        ctx.arc(col * SCALE, row * SCALE, 10, 0, 7);
+        ctx.strokeStyle = '#8ab4ff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
     }
+    // scale bar (5 km) and grid-north marker (image up = toward 0° longitude, the Earth-facing side)
+    const px5 = (5000 / m.res) * SCALE,
+      bx = 14,
+      by = c.height - 18;
+    ctx.fillStyle = 'rgba(5,7,13,.7)';
+    ctx.beginPath();
+    ctx.roundRect(bx - 8, by - 22, px5 + 16, 32, 6);
+    ctx.fill();
+    ctx.fillStyle = '#e6e9f0';
+    ctx.fillRect(bx, by, px5, 3);
+    ctx.fillRect(bx, by - 4, 2, 7);
+    ctx.fillRect(bx + px5 - 2, by - 4, 2, 7);
+    ctx.font = '12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('5 km', bx + px5 / 2, by - 7);
+    const nx = c.width - 30,
+      ny = 18;
+    ctx.fillStyle = 'rgba(5,7,13,.7)';
+    ctx.beginPath();
+    ctx.roundRect(nx - 22, ny - 10, 44, 44, 6);
+    ctx.fill();
+    ctx.fillStyle = '#e6e9f0';
+    ctx.beginPath();
+    ctx.moveTo(nx, ny - 4);
+    ctx.lineTo(nx - 6, ny + 10);
+    ctx.lineTo(nx + 6, ny + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = '11px system-ui';
+    ctx.fillText('0° E', nx, ny + 26);
     if (pick) {
       ctx.strokeStyle = '#ffc83d';
       ctx.lineWidth = 2;
@@ -142,7 +189,7 @@ export function MapView() {
       ctx.arc((pick.col + 0.5) * SCALE, (pick.row + 0.5) * SCALE, 9, 0, 7);
       ctx.stroke();
     }
-  }, [data, metric, pick, reg]);
+  }, [data, metric, pick, reg, s.sites, s.selected]);
 
   const cellAt = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect(),
@@ -240,22 +287,22 @@ export function MapView() {
                 if (!p || !data) return setHover(null);
                 const g = gpuVals(p.col, p.row);
                 setHover({
-                  x: e.clientX + 12,
-                  y: e.clientY + 12,
+                  x: e.clientX,
+                  y: e.clientY,
                   t: `Sunlit ${g[0].toFixed(0)}%\nEarth up ${g[1].toFixed(0)}%\nBoth ${g[2].toFixed(0)}%\nLongest dark ${fmtH(g[3])}`,
                 });
               }}
             />
             {hover && (
-              <div className="tip" style={{ left: hover.x, top: hover.y, whiteSpace: 'pre' }}>
+              <Tip x={hover.x} y={hover.y}>
                 {hover.t}
-              </div>
+              </Tip>
             )}
           </div>
         )}
         <div className="faint small" style={{ marginTop: 8 }}>
           {fmtDate(s.arrival)} + {s.duration} days · mast {Math.max(2, s.z).toFixed(1)} m (map heights are 2–10 m,
-          interpolated in tan θ) · 15.4 km at 120 m cells ·{' '}
+          interpolated in tan θ) · 15.4 km at 120 m cells, polar stereographic, up = toward 0° longitude ·{' '}
           {ms != null ? `integrated on the GPU in ${ms.toFixed(0)} ms` : ''}. White dots are catalogue candidate sites.
           Map “Earth up” = Earth centre above horizon; eclipses and station passes are evaluated by the point engine.
         </div>

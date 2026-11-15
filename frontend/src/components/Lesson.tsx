@@ -9,7 +9,7 @@ const STEPS = [
   },
   {
     title: 'A hill 100 km away matters',
-    body: 'Because the Sun is so low, mountains far away throw shadows. Open the Trust tab and read “Why 35 km is not enough”: the sunlit percentage changes when we look farther.',
+    body: 'Because the Sun is so low, mountains far away throw shadows. Open Methods & validation (in the ⋯ menu) and read “Why 35 km is not enough”: the sunlit percentage changes when we look farther.',
     act: (s: any) => s.set({ tab: 'trust' }),
   },
   {
@@ -21,6 +21,22 @@ const STEPS = [
     title: 'Earth is also low, and wobbles',
     body: 'Earth hangs near the horizon and librates by about 7°. A station on Earth can only talk to the lander when both sides see each other. See the three station rows in the timeline.',
     act: (s: any) => s.set({ tab: 'sky' }),
+  },
+  {
+    title: 'The far side cannot see Earth',
+    body: "Chang'e 4 landed in Von Kármán crater on the far side. Open its sky: Earth never rises, so every message goes through the Queqiao relay satellite. The near side always faces Earth because the Moon's rotation is locked to its orbit.",
+    act: (s: any) => {
+      s.addSite({ id: "Chang'e 4", label: "Von Kármán crater · Chang'e 4", lat: -45.4446, lon: 177.5991 });
+      s.set({ tab: 'sky' });
+    },
+  },
+  {
+    title: 'Equator versus pole',
+    body: 'Apollo 15 landed at 26°N. There the Sun climbs to about 50° and a lunar day lasts two Earth weeks, followed by two weeks of night. Compare its sky with a polar site, where the Sun never gets more than a few degrees up.',
+    act: (s: any) => {
+      s.addSite({ id: 'Apollo 15', label: 'Hadley-Apennine · Apollo 15', lat: 26.13222, lon: 3.63386 });
+      s.set({ tab: 'sky' });
+    },
   },
   {
     title: 'Compare sites and dates',
@@ -38,15 +54,18 @@ export function Lesson() {
         Guided lesson · step {i + 1} of {STEPS.length}
       </h3>
       {STEPS.map((st, k) => (
-        <div key={k} className={'step ' + (k === i ? 'on' : 'off')}>
+        <div
+          key={k}
+          className={'step ' + (k === i ? 'on' : 'off')}
+          onClick={() => setI(k)}
+          style={{ cursor: 'pointer' }}
+        >
           <b>{k + 1}</b>
           <div>
             <b>{st.title}</b>
-            {k === i && (
-              <div className="small" style={{ marginTop: 4 }}>
-                {st.body}
-              </div>
-            )}
+            <div className="small body" style={{ marginTop: 4 }}>
+              {st.body}
+            </div>
           </div>
         </div>
       ))}
@@ -54,7 +73,13 @@ export function Lesson() {
         <button className="btn" disabled={i === 0} onClick={() => setI(i - 1)}>
           Back
         </button>
-        <button className="btn primary" onClick={() => STEPS[i].act(s)}>
+        <button
+          className="btn primary"
+          onClick={() => {
+            STEPS[i].act(s);
+            s.set({ drawer: null });
+          }}
+        >
           Show me
         </button>
         <button className="btn" disabled={i === STEPS.length - 1} onClick={() => setI(i + 1)}>

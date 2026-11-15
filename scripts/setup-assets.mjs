@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { ASSETS_DIR, missingFiles, readManifest, sha256 } from './assets-lib.mjs';
+import { ASSETS_DIR, absentFiles, missingFiles, readManifest, sha256 } from './assets-lib.mjs';
 
 /** GET with redirect following (GitHub release assets redirect to a CDN). Resolves with the response stream. */
 function open(url, redirects = 5) {
@@ -42,6 +42,17 @@ const localArchive = fromIdx >= 0 ? resolve(args[fromIdx + 1] ?? '') : process.e
 const manifest = readManifest();
 const total = Object.keys(manifest.files).length;
 
+// --if-missing (run before dev/build): download only when files are absent. Files that exist but differ from the
+// release (for example after re-baking the data locally) are kept, with a warning, never silently replaced.
+if (ifMissing && !force && absentFiles(manifest).length === 0) {
+  const differ = missingFiles(manifest);
+  if (differ.length)
+    console.warn(
+      `Note: ${differ.length} terrain file(s) differ from release v${manifest.version} (e.g. ${differ[0][0]}); keeping your local copies. ` +
+        'Run "npm run setup -- --force" to replace them with the release.',
+    );
+  process.exit(0);
+}
 if (!force && missingFiles(manifest).length === 0) {
   if (!ifMissing) console.log(`Terrain data already installed (${total} files).`);
   process.exit(0);
