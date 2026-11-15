@@ -5,7 +5,7 @@ import { buildCatalogue } from '../data/catalogue';
 import { ArrayType, Config, DEFAULT_CONFIG, Requirements, Station } from '../math/analysis';
 import { stationsFor, type Network } from '../data/networks';
 
-export type Tab = 'pole' | 'compare' | 'sky' | 'map' | 'trust' | 'brief' | 'windows';
+export type Tab = 'pole' | 'compare' | 'sky' | 'map' | 'trust' | 'brief' | 'windows' | 'guide';
 export type Mode = 'planner' | 'educator' | 'explorer';
 export const DAY = 86_400_000;
 export const client = new EngineClient();
@@ -190,7 +190,7 @@ export const useStore = create<UiState>((set, get) => ({
   stations: [],
   ephStart: 0,
   ephEnd: 0,
-  tab: 'compare',
+  tab: 'pole',
   mode: 'planner',
   arrival: utcDay(Date.now() + 30 * DAY),
   matrixStart: 0,
@@ -318,7 +318,7 @@ export const useStore = create<UiState>((set, get) => ({
               : get().req,
           reqOn: h.ro !== '0',
           matrixMetric: (['sun', 'dte', 'both', 'dark'].includes(h.mm) ? h.mm : 'sun') as UiState['matrixMetric'],
-          tab: (['pole', 'compare', 'sky', 'map', 'trust', 'brief', 'windows'].includes(h.v) ? h.v : 'compare') as Tab,
+          tab: (['pole', 'compare', 'sky', 'map', 'trust', 'brief', 'windows', 'guide'].includes(h.v) ? h.v : 'pole') as Tab,
           profile: h.pf ?? (h.rq != null ? 'custom' : 'default'),
           network: net,
           customStations: cs,
