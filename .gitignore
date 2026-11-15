@@ -5,7 +5,7 @@ dist/
 # local toolchains
 .venv/
 .tools/
-_pycache_/
+__pycache__/
 # raw downloads (multi-GB) and reference ephemerides: regenerate with make all
 data-pipeline/raw/
 *.pyc
