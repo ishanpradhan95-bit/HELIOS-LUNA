@@ -17,6 +17,8 @@ import {
 } from './common';
 import { grade } from '../math/analysis';
 import { OpsLine } from './OpsClock';
+import { usePsr } from '../math/psr';
+import { IcePanel } from './Ice';
 import type { AnalyzeResult } from '../math/client';
 
 export function MiniTimeline({ a, h = 34 }: { a: AnalyzeResult; h?: number }) {
@@ -92,6 +94,7 @@ function Card({ id }: { id: string }) {
     a = s.analyses[id],
     site = s.sites.find((x) => x.id === id),
     band = site && s.bandKeys[id] === analysisKey(s, site) ? s.bands[id] : undefined;
+  const psr = usePsr(site?.lat, site?.lon);
   if (!site) return null;
   const stale = !!a && s.analysisKeys[id] !== analysisKey(s, site);
   const q = a?.meta.quality;
@@ -176,6 +179,7 @@ function Card({ id }: { id: string }) {
               color="var(--faint)"
             />
           </div>
+          <IcePanel psr={psr} compact />
           {g && g.reasons.length > 0 && (
             <ul className="reasons">
               {g.reasons.map((r) => (

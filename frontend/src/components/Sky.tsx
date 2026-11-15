@@ -8,6 +8,8 @@ import { HELP } from './Compare';
 import { SlipPanel } from './SlipPanel';
 import { ZonePanel } from './ZonePanel';
 import { Plans } from './Plans';
+import { usePsr } from '../math/psr';
+import { IcePanel } from './Ice';
 
 const COMPASS: Record<number, string> = {
   0: 'N',
@@ -378,6 +380,7 @@ export function Sky() {
     setPlaying(false);
   };
 
+  const psr = usePsr(site?.lat, site?.lon);
   if (!site) return <div className="card">Pick a site in the sidebar.</div>;
   if (!a)
     return (
@@ -564,6 +567,8 @@ export function Sky() {
       <p className="lede">
         {verdict(sm, s.duration, band ? { sunLo: band.sun[0], sunHi: band.sun[1] } : undefined, mast?.z)}
       </p>
+
+      <IcePanel psr={psr} />
 
       <section className="panel sky">
         <canvas ref={ovRef} aria-label="360 degree overview" />
