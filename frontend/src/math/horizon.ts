@@ -4,9 +4,10 @@ import { Pyramid } from './dem';
 /**
  * Exact terrain horizon with a convex "obstruction envelope" for mast height (architecture doc sec. 6.1-6.2).
  *
- * For one azimuth every terrain sample k at horizontal distance h_k contributes, to first order in z/h,
+ * For one azimuth every terrain sample k at horizontal distance h_k (measured perpendicular to the local vertical) gives
  *     tan(theta_k(z)) = a_k - z / h_k           (a_k = tangent seen from the surface, z = mast height)
- * so the horizon is   tan(theta(z)) = max_k (a_k - m_k z),  m_k = 1/h_k  -- convex, decreasing, piecewise linear in z.
+ * exactly, because raising the observer along the vertical changes only the vertical offset. So the horizon is
+ *     tan(theta(z)) = max_k (a_k - m_k z),  m_k = 1/h_k  -- convex, decreasing, piecewise linear in z.
  * We keep only the non-dominated lines over z in [0, zmax]; any mast height is then exact with no re-march.
  */
 export interface MarchOptions {
@@ -109,7 +110,7 @@ export function computeEnvelope(
     [Ex, Ey, Ez] = fr.e,
     [Nx, Ny, Nz] = fr.north;
   const [sx, sy] = toStereo(fr.n);
-  let hO = pyr.surfaceHeight(sx, sy);
+  let hO = pyr.surfaceAtN(fr.n, sx, sy);
   if (Number.isNaN(hO)) hO = 0;
   const rO = R_M + hO,
     Ox = rO * nx0,
@@ -120,7 +121,8 @@ export function computeEnvelope(
   const zmax = opt.zmax,
     twoR = 2 * R_M,
     hmax = pyr.hmax;
-  const lv = pyr.levels;
+  const lv = pyr.levels,
+    glob = pyr.global;
   const naz = azList ? azList.length : opt.naz;
   const offs = new Uint32Array(naz + 1);
   const A: number[] = [],
@@ -154,6 +156,7 @@ export function computeEnvelope(
         H = list[g].height(X, Y);
         if (H === H) break;
       }
+      if (H !== H && glob) H = glob.heightN(px, py, pz);
       samples++;
       if (H !== H) continue;
       const r = R_M + H,

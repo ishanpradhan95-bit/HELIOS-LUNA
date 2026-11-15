@@ -7,7 +7,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Engine } from '../frontend/src/math/engine';
-import { DEFAULT_CONFIG } from '../frontend/src/math/analysis';
+import { DEFAULT_CONFIG, prepareStations, stationLook } from '../frontend/src/math/analysis';
 import type { SiteRef } from '../frontend/src/math/engine';
 import { Grid, Pyramid } from '../frontend/src/math/dem';
 import { DEFAULT_MARCH, computeEnvelope, stepSchedule } from '../frontend/src/math/horizon';
@@ -61,11 +61,8 @@ const wrap = (d: number) => ((d + 540) % 360) - 180;
     threshold: 'max error < 0.001°',
     result: `max error ${maxErr.toFixed(5)}° (includes hourly linear interpolation and Float32 storage)`,
     pass: maxErr < 0.001,
-    detail: 'The reference is SPICE itself at the exact epoch; JPL Horizons cross-check not yet run.',
+    detail: 'The reference is SPICE itself at the exact epoch; test 12 repeats the check against JPL Horizons.',
   });
-  gaps.push(
-    'Test 1 compares the browser interpolation to SPICE evaluated directly, not to JPL Horizons output; the SPICE kernels are the same source Horizons uses.',
-  );
 }
 
 // 2. Horizon algorithm vs analytic cases
@@ -427,6 +424,116 @@ if (!process.argv.includes('--skip-external')) {
       times[3] >= 50
         ? 'Horizon time is above the 50 ms target; TypeScript is used first per ADR-005 and a Rust/WASM port is the planned remedy.'
         : undefined,
+  });
+}
+
+// 11. Deep Space Network link geometry vs SPICE (independent route: spkcpt / spkcpo, see dsn_reference.py)
+{
+  const refPath = join(import.meta.dirname, 'reference', 'dsn_reference.json');
+  const dsn = JSON.parse(await readFile(refPath, 'utf8')) as {
+    samples: {
+      unixMs: number;
+      lat: number;
+      lon: number;
+      stations: Record<string, { landerAz: number; landerEl: number; stationEl: number }>;
+    }[];
+  };
+  const sts = prepareStations(eng.stations),
+    rec = new Float64Array(10);
+  let errL = 0,
+    errS = 0,
+    n = 0,
+    agree = 0,
+    decisions = 0;
+  for (const smp of dsn.samples) {
+    const frame = siteFrame(smp.lat, smp.lon),
+      site = { frame, posKm: frame.n.map((c) => c * R_KM) as [number, number, number] };
+    eng.eph.at(smp.unixMs, rec);
+    sts.forEach((sv) => {
+      const r = smp.stations[sv.st.id];
+      if (!r) return;
+      const o = stationLook(sv, rec, site);
+      errL = Math.max(
+        errL,
+        Math.abs(o.landerEl - r.landerEl),
+        Math.abs(wrap(o.landerAz - r.landerAz)) * Math.cos(r.landerEl * DEG),
+      );
+      errS = Math.max(errS, Math.abs(o.stationEl - r.stationEl));
+      n++;
+      // the link decision at the default masks, ignoring terrain (lander el > 2 deg, station el > 10 deg)
+      const ours = o.landerEl > DEFAULT_CONFIG.landerMask && o.stationEl >= DEFAULT_CONFIG.stationMask,
+        theirs = r.landerEl > DEFAULT_CONFIG.landerMask && r.stationEl >= DEFAULT_CONFIG.stationMask;
+      decisions++;
+      if (ours === theirs) agree++;
+    });
+  }
+  tests.push({
+    id: 11,
+    name: 'Deep Space Network link geometry',
+    reference: `SPICE by a separate route (constant-position station in ITRF93, LT+S) at ${dsn.samples.length} random epochs 2026–2044 × 3 stations × 6 sites`,
+    threshold: 'lander-side error < 0.01°; station-side elevation error < 0.02°',
+    result: `max lander-side error ${errL.toFixed(4)}°, max station elevation error ${errS.toFixed(4)}° (${n} pairs); link decision at default masks agrees ${agree}/${decisions}`,
+    pass: errL < 0.01 && errS < 0.02,
+    detail:
+      'Checks the station positions, the ITRF93→MOON_ME rotation and both elevation masks used for every “Earth link” number. Stations are taken as fixed WGS84 points (no polar motion, UT1 from the predicted Earth orientation kernel).',
+  });
+}
+
+// 12. Sun and Earth az/el vs NASA/JPL Horizons (independent software, DE441), off-grid epochs, six sites worldwide
+{
+  const hz = JSON.parse(await readFile(join(import.meta.dirname, 'reference', 'horizons_reference.json'), 'utf8')) as {
+    retrieved: string;
+    samples: {
+      site: string;
+      lat: number;
+      lon: number;
+      unixMs: number;
+      sun: [number, number];
+      earth: [number, number];
+    }[];
+  };
+  const buf = new Float64Array(10);
+  let worst = 0,
+    worstAt = '',
+    n = 0;
+  for (const r of hz.samples) {
+    const fr = siteFrame(r.lat, r.lon),
+      pos = fr.n.map((c) => c * R_KM);
+    eng.eph.at(r.unixMs, buf);
+    for (const [body, off] of [
+      ['sun', 0],
+      ['earth', 3],
+    ] as const) {
+      const v = [buf[off] - pos[0], buf[off + 1] - pos[1], buf[off + 2] - pos[2]],
+        d = Math.hypot(v[0], v[1], v[2]);
+      const az =
+        (Math.atan2(v[0] * fr.e[0] + v[1] * fr.e[1], v[0] * fr.north[0] + v[1] * fr.north[1] + v[2] * fr.north[2]) /
+          DEG +
+          360) %
+        360;
+      const el = Math.asin((v[0] * fr.n[0] + v[1] * fr.n[1] + v[2] * fr.n[2]) / d) / DEG;
+      const [haz, hel] = r[body];
+      // great-circle angle between the two directions, so near-zenith azimuth noise does not count
+      const c =
+        Math.sin(el * DEG) * Math.sin(hel * DEG) +
+        Math.cos(el * DEG) * Math.cos(hel * DEG) * Math.cos((az - haz) * DEG);
+      const err = Math.acos(Math.min(1, c)) / DEG;
+      if (err > worst) {
+        worst = err;
+        worstAt = `${r.site} ${body} ${new Date(r.unixMs).toISOString().slice(0, 16)}`;
+      }
+      n++;
+    }
+  }
+  tests.push({
+    id: 12,
+    name: 'Sun / Earth positions vs NASA/JPL Horizons',
+    reference: `JPL Horizons API (DE441), observer on the lunar surface (coord@301, MEAN_ME, airless), ${hz.samples.length} off-grid epochs × 6 sites incl. Apollo 15 and the far side; retrieved ${hz.retrieved.slice(0, 10)}`,
+    threshold: 'angular error < 0.01°',
+    result: `max angular error ${worst.toFixed(5)}° over ${n} Sun and Earth directions (worst: ${worstAt})`,
+    pass: worst < 0.01,
+    detail:
+      'Horizons is the system the challenge names; it uses DE441 and its own frame and light-time code, so this is an independent end-to-end check of the baked ephemeris, frames and topocentric geometry.',
   });
 }
 

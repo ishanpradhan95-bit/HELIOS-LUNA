@@ -17,7 +17,8 @@
     "bake:horizons": "tsx data-pipeline/bake_horizons.ts",
     "validate": "tsx data-pipeline/validate.ts",
     "validate:quick": "tsx data-pipeline/validate.ts --quick",
-    "pack:assets": "node scripts/pack-assets.mjs"
+    "pack:assets": "node scripts/pack-assets.mjs",
+    "evaluate": "tsx data-pipeline/evaluate.ts"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

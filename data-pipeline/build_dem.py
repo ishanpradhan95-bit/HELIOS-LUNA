@@ -232,6 +232,14 @@ midP = resample_box(dem20, res20, -(NPM - 1) / 2 * RESPM, (NPM - 1) / 2 * RESPM,
 write_grid("POLE_mid", midP, 0.0, 0.0, RESPM, NPM)
 regions.append({"id": "POLE", "name": "South pole (validation & custom points)", "lat": -90.0, "lon": 0.0, "cx": 0.0, "cy": 0.0, "artemis3": False, "hidden": True, "sites": []})
 
+# Global fallback for sites anywhere on the Moon: LOLA LDEM_16 (1/16 deg, ~1.9 km), simple cylindrical, already Int16 LE at
+# 0.5 m relative to 1737.4 km. Row 0 is centred on lat 90 - 1/32, column 0 on east longitude 1/32.
+glob = np.fromfile(os.path.join(RAW, "lola", "LDEM_16.IMG"), dtype="<i2")
+assert glob.size == 5760 * 2880
+glob.tofile(os.path.join(OUT, "dem", "global_16.bin"))
+meta["grids"]["global"] = {"file": "dem/global_16.bin", "type": "cylindrical", "ppd": 16, "nLon": 5760, "nLat": 2880,
+                           "source": "LOLA LDEM_16 (GDR V3.1)"}
+
 json.dump(meta, open(os.path.join(OUT, "dem", "dem.json"), "w"), indent=1)
 json.dump({"source": "Wueller et al. 2026, JGR Planets 131(3) e2025JE009434; Zenodo 10.5281/zenodo.17084058 (CC-BY-4.0). "
                      "Region centres are the mean direction of the region's candidate sites (ours). SHK is a teaching site (ours).",

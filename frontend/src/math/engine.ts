@@ -15,12 +15,23 @@ import {
   evalAt,
   Quality,
 } from './analysis';
-import { Grid, DemMeta, Pyramid } from './dem';
+import { Grid, DemMeta, GlobalGrid, Pyramid } from './dem';
 import { Ephemeris, EphemerisMeta } from './ephemeris';
 import { DEFAULT_MARCH, computeEnvelope } from './horizon';
 import { HorizonProfile } from './visibility';
 import { fromStereo, latLonFromN, siteFrame, toStereo, R_M } from './geo';
 import stationsJson from '../data/stations.json';
+
+/** Slope (deg) from the global grid, central differences one cell (~1.9 km) apart in latitude and longitude. */
+function globalSlope(pyr: Pyramid, lat: number, lon: number) {
+  const g = pyr.global!,
+    d = 1 / g.ppd,
+    m = (d * Math.PI * 1737400) / 180,
+    cl = Math.max(0.02, Math.cos((lat * Math.PI) / 180));
+  const zx = (g.heightLL(lat, lon + d) - g.heightLL(lat, lon - d)) / (2 * m * cl),
+    zy = (g.heightLL(lat + d, lon) - g.heightLL(lat - d, lon)) / (2 * m);
+  return (Math.atan(Math.hypot(zx, zy)) * 180) / Math.PI;
+}
 
 export interface DataSource {
   json(path: string): Promise<any>;
@@ -65,9 +76,19 @@ export class Engine {
   stations: Station[] = stationsJson.stations;
   private far!: Grid;
   private midGlobal!: Grid;
+  private globalGrid: Promise<GlobalGrid> | null = null;
   private pyr = new Map<string, Pyramid>();
   private ctxCache = new Map<string, SiteCtx>();
   private stVec = prepareStations(this.stations);
+  private stKey = '';
+  /** Switch the ground network (DSN, Estrack, custom); up to 8 stations. */
+  setStations(list: Station[]) {
+    const k = JSON.stringify(list);
+    if (k === this.stKey || !list.length) return;
+    this.stKey = k;
+    this.stations = list.slice(0, 8);
+    this.stVec = prepareStations(this.stations);
+  }
   constructor(private src: DataSource) {}
 
   async init() {
@@ -112,11 +133,26 @@ export class Engine {
     if (good.length) return { region: good[0].r, quality: 'high' };
     const med = cand.sort((a, b) => b.m - a.m)[0];
     if (med && med.m > -39000) return { region: med.r, quality: 'medium' }; // inside the 100 km, 120 m tile
-    return { region: null, quality: 'coarse' };
+    const half = (g: { n: number; res: number }) => ((g.n - 1) * g.res) / 2,
+      inMid = Math.max(Math.abs(x), Math.abs(y)) < half(this.dem.grids.mid_global) - 2000;
+    return { region: null, quality: inMid ? 'coarse' : 'global' };
+  }
+  /** True when a 300 km horizon march from (lat, lon) would leave the polar grids, so the global LOLA grid is needed. */
+  needsGlobal(lat: number, lon: number) {
+    const [x, y] = toStereo(siteFrame(lat, lon).n),
+      far = this.dem.grids.far,
+      half = ((far.n - 1) * far.res) / 2;
+    return lat > 0 || Math.max(Math.abs(x), Math.abs(y)) + 310_000 > half;
+  }
+  private loadGlobal(): Promise<GlobalGrid> {
+    const g = this.dem.grids.global;
+    if (!g) return Promise.reject(new Error('global grid missing from dem.json; run npm run setup'));
+    this.globalGrid ??= this.src.bin(g.file).then((b) => new GlobalGrid(g.ppd!, g.nLon!, g.nLat!, new Int16Array(b)));
+    return this.globalGrid;
   }
 
-  async pyramid(regionId: string | null): Promise<Pyramid> {
-    const key = regionId ?? '_global';
+  async pyramid(regionId: string | null, withGlobal = false): Promise<Pyramid> {
+    const key = (regionId ?? '_polar') + (withGlobal ? '+global' : '');
     let p = this.pyr.get(key);
     if (p) return p;
     let near: Grid | null = null,
@@ -129,7 +165,7 @@ export class Engine {
       near = this.grid(regionId + '_near', nb);
       mid = this.grid(regionId + '_mid', mb);
     }
-    p = new Pyramid(regionId, near, mid, this.midGlobal, this.far);
+    p = new Pyramid(regionId, near, mid, this.midGlobal, this.far, withGlobal ? await this.loadGlobal() : null);
     this.pyr.set(key, p);
     return p;
   }
@@ -142,7 +178,7 @@ export class Engine {
     const auto = this.regionFor(ref.lat, ref.lon);
     const region = opts.regionId ? (this.regions.find((r) => r.id === opts.regionId) ?? auto.region) : auto.region,
       quality = auto.quality;
-    const pyr = await this.pyramid(region?.id ?? null);
+    const pyr = await this.pyramid(region?.id ?? null, this.needsGlobal(ref.lat, ref.lon));
     const frame = siteFrame(ref.lat, ref.lon);
     const env = computeEnvelope(
       pyr,
@@ -164,7 +200,8 @@ export class Engine {
       groundH: env.groundHeight,
       quality,
       regionId: region?.id ?? null,
-      slopeDeg: siteSlope((a, b) => pyr.surfaceHeight(a, b), x, y),
+      slopeDeg:
+        quality === 'global' ? globalSlope(pyr, ref.lat, ref.lon) : siteSlope((a, b) => pyr.surfaceHeight(a, b), x, y),
     };
     this.ctxCache.set(key, ctx);
     return ctx;
@@ -212,7 +249,13 @@ export class Engine {
   }
 
   /** Site x arrival-date matrix: per site, per arrival day, the window stats (hourly series reused across all days). */
+  /** Number of whole arrival days from startMs whose stay of durationDays still ends inside the ephemeris. */
+  fitDays(startMs: number, days: number, durationDays: number) {
+    return Math.max(0, Math.min(days, Math.floor((this.eph.end - startMs) / MS_DAY) - durationDays));
+  }
+
   matrix(sites: SiteCtx[], startMs: number, days: number, durationDays: number, cfg: Config, req?: Requirements) {
+    days = this.fitDays(startMs, days, durationDays);
     const stepMs = 3_600_000,
       total = Math.round(((days + durationDays) * MS_DAY) / stepMs),
       w = Math.round((durationDays * MS_DAY) / stepMs);
@@ -241,8 +284,18 @@ export class Engine {
 
   /** Tier-A uncertainty: the 8 neighbours one atlas cell (120 m) away; min-max of the headline numbers. */
   async uncertainty(ref: SiteRef, win: Window, cfg: Config) {
+    const q = this.regionFor(ref.lat, ref.lon).quality;
+    if (q === 'global')
+      return {
+        sun: [NaN, NaN],
+        dte: [NaN, NaN],
+        both: [NaN, NaN],
+        dark: [NaN, NaN],
+        outage: [NaN, NaN],
+        n: 0,
+      } as const;
     const [x, y] = toStereo(siteFrame(ref.lat, ref.lon).n),
-      step = 120;
+      step = q === 'coarse' ? 240 : 120;
     const vals: Summary[] = [];
     for (let i = -1; i <= 1; i++)
       for (let j = -1; j <= 1; j++) {
@@ -291,6 +344,7 @@ export class Engine {
     req: Requirements,
     maxResults = 12,
   ) {
+    days = this.fitDays(startMs, days, durationDays);
     const cands: { site: SiteCtx; day: number; slack: number }[] = [];
     const ids = this.stations.map((s) => s.id);
     const stepMs = 3_600_000,
@@ -341,7 +395,159 @@ export class Engine {
     return { results: out.slice(0, maxResults), screened: sites.length * days, feasibleAtMaxMast: cands.length };
   }
 
+  /**
+   * Operations clock at time t: for the Sun (disc above the lit threshold), the Earth (centre above the terrain) and the
+   * link (any station), the current state and the next two transitions, searched at 10-minute steps up to `lookaheadDays`
+   * ahead and refined by bisection to under a minute. Terrain-aware, mast height as configured.
+   */
+  events(site: SiteCtx, cfg: Config, t: number, lookaheadDays = 45) {
+    const prof = this.profile(site, cfg.z),
+      st = newState();
+    const look = (tt: number) => {
+      evalAt(site, prof, this.eph, this.stVec, cfg, tt, st);
+      return [st.fSun > cfg.litThreshold, st.earthUp === 1, st.mask !== 0] as const;
+    };
+    const end = Math.min(this.eph.end, t + lookaheadDays * MS_DAY),
+      step = 10 * 60_000;
+    const now = look(t);
+    evalAt(site, prof, this.eph, this.stVec, cfg, t, st);
+    const at = {
+      sunEl: st.sunEl,
+      sunAz: st.sunAz,
+      earthEl: st.earthEl,
+      earthAz: st.earthAz,
+      fSun: st.fSun,
+      mask: st.mask,
+    };
+    const next: (number | null)[][] = [[], [], []];
+    let prev = now.slice() as boolean[],
+      tp = t;
+    for (let tt = t + step; tt <= end && next.some((n) => n.length < 2); tt += step) {
+      const cur = look(tt);
+      for (let k = 0; k < 3; k++)
+        if (cur[k] !== prev[k] && next[k].length < 2) {
+          let a = tp,
+            b = tt;
+          while (b - a > 30_000) {
+            const m = (a + b) / 2;
+            if (look(m)[k] === prev[k]) a = m;
+            else b = m;
+          }
+          next[k].push(Math.round((a + b) / 2));
+        }
+      prev = cur.slice() as boolean[];
+      tp = tt;
+    }
+    const ch = (k: number) => ({ up: now[k], next: next[k][0] ?? null, then: next[k][1] ?? null });
+    return { t, searchedTo: end, sun: ch(0), earth: ch(1), link: ch(2), at };
+  }
+
   /** Station-by-station detail of a single instant (used by the Sky view scrubber). */
+  /**
+   * Landing windows: every touchdown hour in [startMs, startMs + days) at which
+   *  - the Sun is visible (> half the disc) at an elevation in [sunElMin, sunElMax] (lighting for landing cameras),
+   *  - a ground station has the lander in view for the whole descent (descentH hours before touchdown, and at it),
+   *  - the surface stay that follows meets the requirements,
+   * grouped into contiguous windows. Hourly sampling; window edges are good to the hour.
+   */
+  windows(
+    site: SiteCtx,
+    cfg: Config,
+    req: Requirements,
+    startMs: number,
+    days: number,
+    durationDays: number,
+    opt: { sunElMin: number; sunElMax: number; descentH: number },
+  ) {
+    const step = 3_600_000,
+      pre = Math.max(0, Math.ceil(opt.descentH)),
+      t0 = Math.max(this.eph.start, startMs - pre * step);
+    days = this.fitDays(t0, days, durationDays);
+    const total = Math.round(((days + durationDays) * MS_DAY) / step) + pre,
+      w = Math.round((durationDays * MS_DAY) / step);
+    const S = runSeries(site, this.profile(site, cfg.z), this.eph, this.stVec, cfg, t0, total, step, true);
+    const ids = this.stations.map((x) => x.id);
+    const hours = Math.round((days * MS_DAY) / step);
+    const out: {
+      startMs: number;
+      endMs: number;
+      sunElMin: number;
+      sunElMax: number;
+      bestSun: number;
+      bestDte: number;
+    }[] = [];
+    let cur: (typeof out)[number] | null = null;
+    for (let h = pre; h < pre + hours && h + w <= S.n; h++) {
+      let ok = S.fSun[h] > 0.5 && S.sunEl[h] >= opt.sunElMin && S.sunEl[h] <= opt.sunElMax;
+      for (let k = h - pre; ok && k <= h; k++) if (!S.mask[k]) ok = false;
+      let sm: Summary | null = null;
+      if (ok) {
+        sm = summarize(S, cfg, ids, h, h + w);
+        ok = checkRequirements(sm, req).ok;
+      }
+      const t = S.t0 + h * step;
+      if (ok && sm) {
+        if (!cur)
+          out.push(
+            (cur = { startMs: t, endMs: t + step, sunElMin: S.sunEl[h], sunElMax: S.sunEl[h], bestSun: 0, bestDte: 0 }),
+          );
+        cur.endMs = t + step;
+        cur.sunElMin = Math.min(cur.sunElMin, S.sunEl[h]);
+        cur.sunElMax = Math.max(cur.sunElMax, S.sunEl[h]);
+        cur.bestSun = Math.max(cur.bestSun, sm.sunPct);
+        cur.bestDte = Math.max(cur.bestDte, sm.dtePct);
+      } else cur = null;
+    }
+    return { windows: out, searchedFrom: S.t0 + pre * step, searchedTo: S.t0 + (pre + hours) * step };
+  }
+
+  /**
+   * Landing-zone analysis: points on a grid inside a circle of diameter `diameterM` around the site, each with its
+   * own slope (from the finest terrain, ±30 m) and its own horizon (360 azimuths to 300 km) and stay summary.
+   */
+  async zone(ref: SiteRef, win: Window, cfg: Config, req: Requirements, diameterM: number, perSide = 7) {
+    const R = R_M,
+      lat0 = ref.lat * (Math.PI / 180);
+    const pts: {
+      dx: number;
+      dy: number;
+      lat: number;
+      lon: number;
+      slope: number;
+      sun: number;
+      dte: number;
+      dark: number;
+      outage: number;
+      ok: boolean;
+    }[] = [];
+    const half = diameterM / 2,
+      stepM = diameterM / (perSide - 1 || 1);
+    for (let i = 0; i < perSide; i++)
+      for (let j = 0; j < perSide; j++) {
+        const dx = -half + i * stepM,
+          dy = -half + j * stepM;
+        if (Math.hypot(dx, dy) > half + 1e-6) continue;
+        const lat = ref.lat + (dy / R) * (180 / Math.PI),
+          lon = ref.lon + (dx / (R * Math.max(0.02, Math.cos(lat0)))) * (180 / Math.PI);
+        const site = await this.site({ id: `${ref.id}~z${i}${j}`, label: ref.label, lat, lon }, { naz: 360 });
+        const s = this.analyze(site, win, { ...cfg, stepMin: Math.max(cfg.stepMin, 30) }).summary;
+        pts.push({
+          dx,
+          dy,
+          lat,
+          lon,
+          slope: site.slopeDeg,
+          sun: s.sunPct,
+          dte: s.dtePct,
+          dark: s.longestDarkH,
+          outage: s.longestOutageH,
+          ok: checkRequirements(s, req).ok,
+        });
+      }
+    const q = this.regionFor(ref.lat, ref.lon).quality;
+    return { points: pts, diameterM, quality: q };
+  }
+
   instant(site: SiteCtx, cfg: Config, t: number) {
     const st = newState();
     evalAt(site, this.profile(site, cfg.z), this.eph, this.stVec, cfg, t, st);

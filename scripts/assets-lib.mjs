@@ -24,6 +24,11 @@ export function sha256(file) {
 }
 
 /** Files from the manifest that are missing or have the wrong size under frontend/public/assets. */
+/** Files from the manifest that are absent under frontend/public/assets. */
+export function absentFiles(manifest) {
+  return Object.keys(manifest.files).filter((name) => !existsSync(join(ASSETS_DIR, name)));
+}
+
 export function missingFiles(manifest) {
   return Object.entries(manifest.files).filter(([name, size]) => {
     const p = join(ASSETS_DIR, name);

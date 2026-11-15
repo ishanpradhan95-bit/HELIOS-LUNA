@@ -1,0 +1,199 @@
+{
+ "note": "Curated landing sites. Coordinates are planetocentric (MOON_ME), east longitude positive. Apollo, Luna, Surveyor, Chang'e, Chandrayaan-3, SLIM and IM-1/IM-2 are the published lander positions (mostly from LROC NAC image measurements); 'target' entries are planned or announced landing regions and are approximate.",
+ "groups": [
+  {
+   "id": "apollo",
+   "name": "Apollo",
+   "sites": [
+    {
+     "id": "Apollo 11",
+     "lat": 0.67416,
+     "lon": 23.47314,
+     "year": 1969,
+     "note": "Tranquility Base, Mare Tranquillitatis",
+     "place": "Tranquility Base"
+    },
+    {
+     "id": "Apollo 12",
+     "lat": -3.01239,
+     "lon": -23.42157,
+     "year": 1969,
+     "note": "Oceanus Procellarum, beside Surveyor 3",
+     "place": "Oceanus Procellarum"
+    },
+    {
+     "id": "Apollo 14",
+     "lat": -3.6453,
+     "lon": -17.47136,
+     "year": 1971,
+     "note": "Fra Mauro highlands",
+     "place": "Fra Mauro"
+    },
+    {
+     "id": "Apollo 15",
+     "lat": 26.13222,
+     "lon": 3.63386,
+     "year": 1971,
+     "note": "Hadley-Apennine, at the foot of Mons Hadley",
+     "place": "Hadley-Apennine"
+    },
+    {
+     "id": "Apollo 16",
+     "lat": -8.97301,
+     "lon": 15.50019,
+     "year": 1972,
+     "note": "Descartes highlands",
+     "place": "Descartes highlands"
+    },
+    {
+     "id": "Apollo 17",
+     "lat": 20.1908,
+     "lon": 30.77168,
+     "year": 1972,
+     "note": "Taurus-Littrow valley",
+     "place": "Taurus-Littrow"
+    }
+   ]
+  },
+  {
+   "id": "clps",
+   "name": "CLPS and commercial",
+   "sites": [
+    {
+     "id": "IM-1 Odysseus",
+     "lat": -80.13,
+     "lon": 1.4371,
+     "year": 2024,
+     "note": "Intuitive Machines, near Malapert A; landed on a slope and tipped",
+     "place": "Malapert A"
+    },
+    {
+     "id": "IM-2 Athena",
+     "lat": -84.79,
+     "lon": 29.2,
+     "year": 2025,
+     "note": "Intuitive Machines, Mons Mouton plateau (approx.)",
+     "place": "Mons Mouton"
+    },
+    {
+     "id": "Blue Ghost M1",
+     "lat": 18.5622,
+     "lon": 61.8103,
+     "year": 2025,
+     "note": "Firefly, Mare Crisium near Mons Latreille",
+     "place": "Mare Crisium"
+    },
+    {
+     "id": "VIPER target",
+     "lat": -84.5,
+     "lon": 31.0,
+     "year": null,
+     "note": "NASA rover target region, Mons Mouton (approx.)",
+     "place": "Mons Mouton"
+    },
+    {
+     "id": "Lunar Vertex target",
+     "lat": 7.5,
+     "lon": -59.0,
+     "year": null,
+     "note": "CLPS payload to the Reiner Gamma swirl (approx.)",
+     "place": "Reiner Gamma"
+    },
+    {
+     "id": "Schrödinger basin target",
+     "lat": -75.0,
+     "lon": 132.4,
+     "year": null,
+     "note": "CLPS far-side target (approx. basin centre)",
+     "place": "Schrödinger basin"
+    }
+   ]
+  },
+  {
+   "id": "intl",
+   "name": "Other nations",
+   "sites": [
+    {
+     "id": "Chandrayaan-3",
+     "lat": -69.3733,
+     "lon": 32.3191,
+     "year": 2023,
+     "note": "ISRO Vikram lander, Shiv Shakti point",
+     "place": "Shiv Shakti point"
+    },
+    {
+     "id": "SLIM",
+     "lat": -13.316,
+     "lon": 25.251,
+     "year": 2024,
+     "note": "JAXA, near Shioli crater",
+     "place": "Shioli crater"
+    },
+    {
+     "id": "Chang'e 3",
+     "lat": 44.1214,
+     "lon": -19.5116,
+     "year": 2013,
+     "note": "CNSA, Mare Imbrium",
+     "place": "Mare Imbrium"
+    },
+    {
+     "id": "Chang'e 4",
+     "lat": -45.4446,
+     "lon": 177.5991,
+     "year": 2019,
+     "note": "CNSA, Von Kármán crater, far side (needs a relay)",
+     "place": "Von Kármán crater"
+    },
+    {
+     "id": "Chang'e 5",
+     "lat": 43.0576,
+     "lon": -51.9161,
+     "year": 2020,
+     "note": "CNSA sample return, Oceanus Procellarum",
+     "place": "Mons Rümker area"
+    },
+    {
+     "id": "Chang'e 6",
+     "lat": -41.6385,
+     "lon": -153.9852,
+     "year": 2024,
+     "note": "CNSA far-side sample return, Apollo basin",
+     "place": "Apollo basin"
+    },
+    {
+     "id": "Luna 9",
+     "lat": 7.0879,
+     "lon": -64.3699,
+     "year": 1966,
+     "note": "First soft landing, Oceanus Procellarum",
+     "place": "Oceanus Procellarum"
+    },
+    {
+     "id": "Luna 17 / Lunokhod 1",
+     "lat": 38.2378,
+     "lon": -35.0017,
+     "year": 1970,
+     "note": "Mare Imbrium",
+     "place": "Mare Imbrium"
+    },
+    {
+     "id": "Luna 24",
+     "lat": 12.7145,
+     "lon": 62.2129,
+     "year": 1976,
+     "note": "Mare Crisium sample return",
+     "place": "Mare Crisium"
+    },
+    {
+     "id": "Luna 25 target",
+     "lat": -69.545,
+     "lon": 43.544,
+     "year": 2023,
+     "note": "Boguslawsky crater (spacecraft crashed before landing)",
+     "place": "Boguslawsky crater"
+    }
+   ]
+  }
+ ]
+}

@@ -28,7 +28,9 @@ const handlers: Record<string, (a: any) => Promise<any> | any> = {
     const site = await eng!.site(a.ref);
     const t1 = performance.now();
     const r = eng!.analyze(site, a.win, a.cfg);
+    const ev = eng!.events(site, a.cfg, a.win.startMs, 40);
     return {
+      events: ev,
       summary: r.summary,
       series: r.series,
       horizon: r.prof.deg,
@@ -64,6 +66,23 @@ const handlers: Record<string, (a: any) => Promise<any> | any> = {
     for (const r of a.refs) sites.push(await eng!.site(r));
     return eng!.solve(sites, a.start, a.days, a.dur, a.cfg, a.req);
   },
+  async events(a: { ref: SiteRef; cfg: Config; t: number; days?: number }) {
+    return eng!.events(await eng!.site(a.ref), a.cfg, a.t, a.days);
+  },
+  async windows(a: {
+    ref: SiteRef;
+    cfg: Config;
+    req: Requirements;
+    start: number;
+    days: number;
+    dur: number;
+    opt: { sunElMin: number; sunElMax: number; descentH: number };
+  }) {
+    return eng!.windows(await eng!.site(a.ref), a.cfg, a.req, a.start, a.days, a.dur, a.opt);
+  },
+  async zone(a: { ref: SiteRef; win: Window; cfg: Config; req: Requirements; d: number }) {
+    return eng!.zone(a.ref, a.win, a.cfg, a.req, a.d);
+  },
   bodies(a: { start: number; n: number; stepMs: number }) {
     return eng!.bodies(a.start, a.n, a.stepMs);
   },
@@ -77,6 +96,7 @@ const ctx = self as unknown as DedicatedWorkerGlobalScope;
 ctx.onmessage = async (ev: MessageEvent<{ id: number; method: string; args: any }>) => {
   const { id, method, args } = ev.data;
   try {
+    if (args?.cfg?.stations && eng) eng.setStations(args.cfg.stations);
     const res = await handlers[method](args);
     ctx.postMessage({ id, ok: true, res });
   } catch (e: any) {

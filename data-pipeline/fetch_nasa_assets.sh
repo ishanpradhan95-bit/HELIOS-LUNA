@@ -21,4 +21,7 @@ for f in LDEM_60S_240M LDEM_80S_20M; do
   get $LOLA/$f.LBL raw/lola/$f.LBL
   get $LOLA/$f.IMG raw/lola/$f.IMG
 done
+LOLAC=https://imbrium.mit.edu/DATA/LOLA_GDR/CYLINDRICAL/IMG
+get $LOLAC/LDEM_16.LBL raw/lola/LDEM_16.LBL
+get $LOLAC/LDEM_16.IMG raw/lola/LDEM_16.IMG
 echo "fetch complete"
