@@ -1,7 +1,16 @@
 node_modules/
-frontend/dist/
-data-pipeline/generated/
-__pycache__/
+dist/
+.DS_Store
+*.log
+# local toolchains
+.venv/
+.tools/
+_pycache_/
+# raw downloads (multi-GB) and reference ephemerides: regenerate with make all
+data-pipeline/raw/
 *.pyc
 *.tsbuildinfo
-.DS_Store
+# large baked terrain data, installed by npm run setup from the GitHub Release
+frontend/public/assets/dem/
+frontend/public/assets/atlas/
+release/
