@@ -13,12 +13,14 @@ import { Sky } from './components/Sky';
 import { MapView } from './components/MapView';
 import { Trust } from './components/Trust';
 import { Lesson } from './components/Lesson';
+import { Guide } from './components/Guide';
 
 const VIEWS: { id: Tab; label: string; also?: Tab[] }[] = [
+  { id: 'pole', label: 'Map', also: ['map'] },
   { id: 'compare', label: 'Compare' },
   { id: 'windows', label: 'Windows' },
   { id: 'sky', label: 'Site' },
-  { id: 'pole', label: 'Map', also: ['map'] },
+  { id: 'guide', label: 'How to Use' },
 ];
 const GRADE_TEXT = { go: 'GO', check: 'CHECK', nogo: 'NO-GO' } as const;
 
@@ -51,12 +53,25 @@ export function App() {
     [more, setMore] = useState(false),
     [copied, setCopied] = useState(false);
   const [theme, setTheme] = useTheme();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hl-sidebar-collapsed', sidebarCollapsed ? '1' : '0');
+    } catch {
+      /* private mode */
+    }
+  }, [sidebarCollapsed]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = /INPUT|SELECT|TEXTAREA/.test((e.target as HTMLElement)?.tagName ?? '');
       if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) {
         e.preventDefault();
         setPalette((p) => !p);
+      } else if ((e.key === 'b' || e.key === 'B' || e.key === '\\') && (e.metaKey || e.ctrlKey) && !typing) {
+        e.preventDefault();
+        setSidebarCollapsed((c) => !c);
       } else if (e.key === 'Escape') {
         setPalette(false);
         setMenu(false);
@@ -111,129 +126,159 @@ export function App() {
       </div>
     );
   const isMap = s.tab === 'pole';
+  const selRef = s.sites.find((x) => x.id === s.selected);
   return (
     <div className="app">
-      <header className="top">
-        <div className="brand" title="HELIOS·LUNA: lunar landing-site navigator">
-          <i className="logo" aria-hidden />
-          <span className="name">HELIOS·LUNA</span>
-        </div>
-        <nav className="views" aria-label="Views">
-          {VIEWS.map((v) => (
-            <button
-              key={v.id}
-              className="view"
-              aria-current={s.tab === v.id || v.also?.includes(s.tab) ? 'page' : undefined}
-              onClick={() => s.set({ tab: v.id })}
-            >
-              {v.label}
-            </button>
-          ))}
-        </nav>
-        <div className="actions">
-          <button
-            className="btn"
-            onClick={() => {
-              void navigator.clipboard?.writeText(location.href);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1600);
-            }}
-            title="Copy a link that reproduces exactly this analysis"
-          >
-            {copied ? 'Link copied' : 'Share'}
-          </button>
-          <div className="menuwrap">
-            <button className="btn" onClick={() => setMenu((m) => !m)} aria-expanded={menu}>
-              Export
-            </button>
-            {menu && (
-              <div className="menu" role="menu" onClick={() => setMenu(false)}>
-                <button role="menuitem" onClick={() => s.set({ tab: 'brief' })}>
-                  Mission brief <small>printable PDF for the team</small>
-                </button>
-                <button
-                  role="menuitem"
-                  onClick={() =>
-                    download(
-                      'helios-luna_sites.geojson',
-                      JSON.stringify(
-                        {
-                          type: 'FeatureCollection',
-                          name: 'HELIOS-LUNA sites',
-                          note: 'Lunar coordinates: planetocentric latitude, east longitude (MOON_ME, 1737.4 km sphere), not WGS84.',
-                          features: s.sites.map((x) => {
-                            const a = s.analyses[x.id];
-                            return {
-                              type: 'Feature',
-                              geometry: { type: 'Point', coordinates: [x.lon, x.lat] },
-                              properties: {
-                                id: x.id,
-                                label: x.label,
-                                touchdown_utc: new Date(s.arrival).toISOString(),
-                                stay_days: s.duration,
-                                ...(a
-                                  ? {
-                                      grade: grade(a.summary, s.req).grade,
-                                      sunlit_pct: +a.summary.sunPct.toFixed(1),
-                                      longest_dark_h: +a.summary.longestDarkH.toFixed(1),
-                                      link_pct: +a.summary.dtePct.toFixed(1),
-                                      longest_outage_h: +a.summary.longestOutageH.toFixed(1),
-                                    }
-                                  : {}),
-                              },
-                            };
-                          }),
-                        },
-                        null,
-                        1,
-                      ),
-                      'application/geo+json',
-                    )
-                  }
-                >
-                  Sites <small>GeoJSON for GIS tools</small>
-                </button>
-                <button role="menuitem" onClick={() => s.set({ tab: 'sky' })}>
-                  Horizon mask <small>STK .aem, from Site</small>
-                </button>
-                <button role="menuitem" onClick={() => s.set({ tab: 'windows' })}>
-                  Landing windows <small>calendar (.ics), from Windows</small>
-                </button>
-                <button role="menuitem" onClick={() => s.set({ tab: 'compare' })}>
-                  Date matrix <small>CSV, from Compare</small>
-                </button>
-                <button role="menuitem" onClick={() => s.set({ tab: 'sky' })}>
-                  Timeline, passes, horizon <small>CSV, from Site</small>
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="menuwrap">
-            <button className="btn" aria-label="More" aria-expanded={more} onClick={() => setMore((m) => !m)}>
-              ⋯
-            </button>
-            {more && (
-              <div className="menu" role="menu" onClick={() => setMore(false)}>
-                <button role="menuitem" onClick={() => s.set({ drawer: 'learn' })}>
-                  Learn the basics <small>a 7-step guided lesson</small>
-                </button>
-                <button role="menuitem" onClick={() => s.set({ tab: 'trust' })}>
-                  Methods &amp; validation <small>12 automated tests</small>
-                </button>
-                <button role="menuitem" onClick={() => s.set({ drawer: 'profile' })}>
-                  Mission profile <small>requirements, network, power</small>
-                </button>
-                <hr />
-                <button role="menuitem" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-                  {theme === 'dark' ? 'Light appearance' : 'Dark appearance'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-      <Sidebar />
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((c) => !c)}
+        onOpenPalette={() => setPalette(true)}
+      />
       <main className={'main' + (s.ready && isMap ? ' stage' : '')}>
+        <header className="top">
+          <div className="window-leading">
+            <div className="context-indicator">
+              <span className="context-main">
+                {selRef ? (selRef.id.startsWith('Custom') ? 'Custom point' : selRef.id) : 'HELIOS·LUNA'}
+              </span>
+              <span className="context-sub">
+                {selRef ? (selRef.id.startsWith('Custom') ? `${selRef.lat.toFixed(2)}°, ${selRef.lon.toFixed(2)}°` : selRef.label.replace(/ · .*/, '')) : 'Lunar Landing Navigator'}
+              </span>
+            </div>
+          </div>
+          <nav className="views" aria-label="Views">
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                className="view"
+                aria-current={s.tab === v.id || v.also?.includes(s.tab) ? 'page' : undefined}
+                onClick={() => s.set({ tab: v.id })}
+              >
+                {v.label}
+              </button>
+            ))}
+          </nav>
+          <div className="actions">
+            {s.busy > 0 && (
+              <span className="status-pill mac-status-pill" role="status">
+                <i className="spin" aria-hidden />
+                <span>Computing</span>
+              </span>
+            )}
+            <button
+              className="iconbtn theme-toggle"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Switch to light appearance' : 'Switch to dark appearance'}
+              aria-label="Toggle theme appearance"
+            >
+              <Icon name={theme === 'dark' ? 'sun_icon' : 'moon'} size={14} />
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                void navigator.clipboard?.writeText(location.href);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1600);
+              }}
+              title="Copy a link that reproduces exactly this analysis"
+            >
+              <Icon name="share" size={13} />
+              <span>{copied ? 'Link copied' : 'Share'}</span>
+            </button>
+            <div className="menuwrap">
+              <button className="btn" onClick={() => setMenu((m) => !m)} aria-expanded={menu}>
+                <span>Export</span>
+                <Icon name="chevron_down" size={10} />
+              </button>
+              {menu && (
+                <div className="menu" role="menu" onClick={() => setMenu(false)}>
+                  <button role="menuitem" onClick={() => s.set({ tab: 'brief' })}>
+                    Mission brief <small>printable PDF for the team</small>
+                  </button>
+                  <button
+                    role="menuitem"
+                    onClick={() =>
+                      download(
+                        'helios-luna_sites.geojson',
+                        JSON.stringify(
+                          {
+                            type: 'FeatureCollection',
+                            name: 'HELIOS-LUNA sites',
+                            note: 'Lunar coordinates: planetocentric latitude, east longitude (MOON_ME, 1737.4 km sphere), not WGS84.',
+                            features: s.sites.map((x) => {
+                              const a = s.analyses[x.id];
+                              return {
+                                type: 'Feature',
+                                geometry: { type: 'Point', coordinates: [x.lon, x.lat] },
+                                properties: {
+                                  id: x.id,
+                                  label: x.label,
+                                  touchdown_utc: new Date(s.arrival).toISOString(),
+                                  stay_days: s.duration,
+                                  ...(a
+                                    ? {
+                                        grade: grade(a.summary, s.req).grade,
+                                        sunlit_pct: +a.summary.sunPct.toFixed(1),
+                                        longest_dark_h: +a.summary.longestDarkH.toFixed(1),
+                                        link_pct: +a.summary.dtePct.toFixed(1),
+                                        longest_outage_h: +a.summary.longestOutageH.toFixed(1),
+                                      }
+                                    : {}),
+                                },
+                              };
+                            }),
+                          },
+                          null,
+                          1,
+                        ),
+                        'application/geo+json',
+                      )
+                    }
+                  >
+                    Sites <small>GeoJSON for GIS tools</small>
+                  </button>
+                  <button role="menuitem" onClick={() => s.set({ tab: 'sky' })}>
+                    Horizon mask <small>STK .aem, from Site</small>
+                  </button>
+                  <button role="menuitem" onClick={() => s.set({ tab: 'windows' })}>
+                    Landing windows <small>calendar (.ics), from Windows</small>
+                  </button>
+                  <button role="menuitem" onClick={() => s.set({ tab: 'compare' })}>
+                    Date matrix <small>CSV, from Compare</small>
+                  </button>
+                  <button role="menuitem" onClick={() => s.set({ tab: 'sky' })}>
+                    Timeline, passes, horizon <small>CSV, from Site</small>
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="menuwrap">
+              <button className="btn icon-only" aria-label="More options" aria-expanded={more} onClick={() => setMore((m) => !m)}>
+                ⋯
+              </button>
+              {more && (
+                <div className="menu" role="menu" onClick={() => setMore(false)}>
+                  <button role="menuitem" onClick={() => s.set({ tab: 'guide' })}>
+                    How to use <small>overview &amp; quick start</small>
+                  </button>
+                  <button role="menuitem" onClick={() => s.set({ drawer: 'learn' })}>
+                    Learn the basics <small>a 7-step guided lesson</small>
+                  </button>
+                  <button role="menuitem" onClick={() => s.set({ tab: 'trust' })}>
+                    Methods &amp; validation <small>12 automated tests</small>
+                  </button>
+                  <button role="menuitem" onClick={() => s.set({ drawer: 'profile' })}>
+                    Mission profile <small>requirements, network, power</small>
+                  </button>
+                  <hr />
+                  <button role="menuitem" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                    {theme === 'dark' ? 'Light appearance' : 'Dark appearance'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
         {s.ready && <ScenarioBar />}
         {!s.ready ? (
           <div className="loading">
@@ -248,6 +293,7 @@ export function App() {
             {s.tab === 'windows' && <Windows />}
             {s.tab === 'trust' && <Trust />}
             {s.tab === 'brief' && <Brief />}
+            {s.tab === 'guide' && <Guide />}
           </div>
         )}
       </main>
@@ -599,38 +645,148 @@ function Num({
   );
 }
 
-function Sidebar() {
+function Sidebar({
+  collapsed,
+  onToggle,
+  onOpenPalette,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+  onOpenPalette: () => void;
+}) {
   const s = useStore();
-  return (
-    <aside className="side" aria-label="Sites">
-      {s.ready && (
-        <>
-          <SitePicker />
-          <div className="sect">
-            Your sites <span className="faint">{s.sites.length}</span>
+  if (!s.ready) return <aside className="side loading-side" />;
+
+  if (collapsed) {
+    return (
+      <aside className="nav-dock macos-dock" aria-label="Site Dock">
+        <div className="dock-shelf">
+          <div className="dock-group">
+            <button
+              className="dock-item"
+              onClick={onToggle}
+              title="Expand Sidebar (⌘B / Ctrl+B)"
+              aria-label="Expand Sidebar"
+            >
+              <div className="dock-tile system">
+                <Icon name="sidebar" size={17} />
+              </div>
+              <span className="dock-tooltip">Expand Sidebar <kbd>⌘B</kbd></span>
+            </button>
+            <button
+              className="dock-item"
+              onClick={onOpenPalette}
+              title="Quick Search (⌘K / Ctrl+K)"
+              aria-label="Quick Search"
+            >
+              <div className="dock-tile system">
+                <Icon name="search" size={16} />
+              </div>
+              <span className="dock-tooltip">Quick Search <kbd>⌘K</kbd></span>
+            </button>
           </div>
-          <div className="sitelist">
+
+          <div className="dock-divider" />
+
+          <div className="dock-sites">
             {s.sites.map((x) => {
               const a = s.analyses[x.id],
                 g = a ? grade(a.summary, s.req).grade : null;
+              const isSel = s.selected === x.id;
+              const monogram = x.id.startsWith('Custom')
+                ? 'CU'
+                : x.id.replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase();
+              const siteName = x.id.startsWith('Custom') ? 'Custom Point' : x.label.replace(/ · .*/, '');
+
               return (
-                <div
+                <button
                   key={x.id}
+                  className={'dock-item site' + (isSel ? ' active' : '')}
+                  onClick={() => s.set({ selected: x.id })}
+                  aria-label={`${x.label}${g ? ` · ${GRADE_TEXT[g]}` : ''}`}
+                >
+                  <div className="dock-tile app">
+                    <span className="dock-monogram">{monogram}</span>
+                  </div>
+                  <span className="dock-tooltip">
+                    <b>{x.id}</b> · {siteName}
+                    {g && <span className={'dock-tooltip-grade ' + g}>{GRADE_TEXT[g]}</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="dock-divider" />
+
+          <div className="dock-group">
+            <button
+              className="dock-item"
+              onClick={onOpenPalette}
+              title="Add Landing Site (⌘K)"
+              aria-label="Add Landing Site"
+            >
+              <div className="dock-tile action">
+                <Icon name="plus" size={17} />
+              </div>
+              <span className="dock-tooltip">Add Landing Site</span>
+            </button>
+            <button
+              className="dock-item"
+              onClick={() => s.set({ drawer: 'profile' })}
+              title="Mission Profile & Network"
+              aria-label="Mission Profile & Network"
+            >
+              <div className="dock-tile action">
+                <Icon name="earth" size={17} />
+              </div>
+              <span className="dock-tooltip">Network: {s.network.toUpperCase()} ({s.stations.length} stns)</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
+  const pinnedSites = s.sites.filter((x) => s.pinned.includes(x.id));
+  const otherSites = s.sites.filter((x) => !s.pinned.includes(x.id));
+
+  return (
+    <aside className="side" aria-label="Sites">
+      <div className="side-top">
+        <div className="brand" title="HELIOS·LUNA: lunar landing-site navigator">
+          <i className="logo" aria-hidden />
+          <div className="brand-text">
+            <span className="name">HELIOS·LUNA</span>
+            <span className="brand-sub">Lunar Landing Navigator</span>
+          </div>
+        </div>
+        <button
+          className="iconbtn side-toggle-btn"
+          onClick={onToggle}
+          title="Collapse sidebar (⌘B)"
+          aria-label="Collapse sidebar"
+        >
+          <Icon name="sidebar" size={16} />
+        </button>
+      </div>
+      <div className="side-search-wrap">
+        <SitePicker />
+      </div>
+      <div className="side-scroll">
+        {pinnedSites.length > 0 && (
+          <>
+            <div className="sect">
+              <span>Pinned Sites</span>
+              <span className="count-pill">{pinnedSites.length}</span>
+            </div>
+            <div className="sitelist">
+              {pinnedSites.map((x) => (
+                <div
+                  key={'pin_' + x.id}
                   className={'siteitem' + (s.selected === x.id ? ' sel' : '')}
                   onClick={() => s.set({ selected: x.id })}
                 >
-                  <button
-                    className={'iconbtn' + (s.pinned.includes(x.id) ? ' pinned' : '')}
-                    title={s.pinned.includes(x.id) ? 'Shown in Compare' : 'Show in Compare'}
-                    aria-label={`Compare ${x.label}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      s.togglePin(x.id);
-                    }}
-                  >
-                    {s.pinned.includes(x.id) ? '★' : '☆'}
-                  </button>
-                  <i className="chip" style={{ ['--hue' as string]: siteHue(x.id) }} />
                   <span className="name" title={x.label}>
                     {x.id.startsWith('Custom') ? (
                       <b>{x.label}</b>
@@ -640,28 +796,80 @@ function Sidebar() {
                       </>
                     )}
                   </span>
-                  {g && <span className={'gdot ' + g} title={GRADE_TEXT[g]} />}
                   <button
-                    className="iconbtn"
-                    aria-label={`Remove ${x.label}`}
-                    title="Remove"
+                    className="iconbtn pin-action-btn"
+                    title="Remove from comparison"
+                    aria-label={`Unpin ${x.label}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      s.removeSite(x.id);
+                      s.togglePin(x.id);
                     }}
                   >
                     ×
                   </button>
                 </div>
-              );
-            })}
-          </div>
-          <p className="faint small">
-            Search 100+ sites or type coordinates above ({navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}K). ★ adds a
-            site to Compare; click the ground in Map to add any point.
-          </p>
-        </>
-      )}
+              ))}
+            </div>
+          </>
+        )}
+        <div className="sect" style={{ marginTop: pinnedSites.length > 0 ? 10 : 0 }}>
+          <span>{pinnedSites.length > 0 ? 'Other Sites' : 'All Sites'}</span>
+          <span className="count-pill">{otherSites.length}</span>
+        </div>
+        <div className="sitelist">
+          {otherSites.map((x) => (
+            <div
+              key={x.id}
+              className={'siteitem' + (s.selected === x.id ? ' sel' : '')}
+              onClick={() => s.set({ selected: x.id })}
+            >
+              <span className="name" title={x.label}>
+                {x.id.startsWith('Custom') ? (
+                  <b>{x.label}</b>
+                ) : (
+                  <>
+                    <b>{x.id}</b> <span>{x.label.replace(/ · .*/, '')}</span>
+                  </>
+                )}
+              </span>
+              <button
+                className="iconbtn pin-action-btn"
+                title="Add to comparison"
+                aria-label={`Compare ${x.label}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  s.togglePin(x.id);
+                }}
+              >
+                +
+              </button>
+              {x.id.startsWith('Custom') && (
+                <button
+                  className="iconbtn remove-btn"
+                  aria-label={`Remove ${x.label}`}
+                  title="Remove site"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    s.removeSite(x.id);
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="side-footer">
+        <button
+          className="network-status-btn"
+          onClick={() => s.set({ drawer: 'profile' })}
+          title="Configure mission profile & ground network"
+        >
+          <Icon name="earth" size={13} />
+          <span className="net-label">{s.network.toUpperCase()} · {s.stations.length} stations</span>
+        </button>
+      </div>
     </aside>
   );
 }
