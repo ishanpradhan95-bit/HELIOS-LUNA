@@ -85,9 +85,6 @@ export function Lesson() {
         <button className="btn" disabled={i === STEPS.length - 1} onClick={() => setI(i + 1)}>
           Next
         </button>
-        <button className="btn" onClick={() => window.print()} style={{ marginLeft: 'auto' }}>
-          Print worksheet
-        </button>
       </div>
     </div>
   );

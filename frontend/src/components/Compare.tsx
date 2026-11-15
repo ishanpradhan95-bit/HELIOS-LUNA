@@ -110,7 +110,6 @@ function Card({ id }: { id: string }) {
           <div
             style={{ fontSize: 16, fontWeight: 650, lineHeight: 1.25, display: 'flex', alignItems: 'center', gap: 8 }}
           >
-            <i className="chip" style={{ ['--hue' as string]: siteHue(id) }} />
             {site.id.startsWith('Custom') ? 'Custom point' : site.id}
           </div>
           <div className="coords">
