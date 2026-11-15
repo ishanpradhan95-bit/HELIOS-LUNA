@@ -21,6 +21,7 @@ Static app with no backend. Implements [`HELIOS_LUNA_v2_architecture.md`](HELIOS
 | Schedule slips | "If the landing slips" panel (−14 to +60 days, nearest acceptable dates) and **Plans**: save a baseline, change date or site, read a line-by-line change table |
 | When can we land? | **Landing windows**: every touchdown hour with the Sun at a usable angle for the cameras, station contact through descent, and a stay that meets the profile; Gantt chart, table, calendar (.ics) export |
 | Where exactly in the zone? | **Landing zone**: slope (Artemis < 10° criterion) and lighting/link spread over a 100 m–2 km zone at 20 m terrain |
+| Where is the water ice? | **Water ice nearby** panel on every Compare card and the Site view: distance and direction to the nearest permanently shadowed region (where water ice can survive), its area within 5 km, a *Very close / Close / Within reach / Far* tag, and a north-up mini map of the shadowed ground around the site with the route to the nearest patch; NASA PGDA illumination maps at 120 m, 85–90°S |
 | Planners, educators and the public | Guided printable lesson, plain-language verdicts, mission brief (PDF), CSV/JSON exports |
 | Accuracy | 12 automated validation tests incl. JPL Horizons (< 0.0002°), SPICE, PGDA and LROC imagery |
 
@@ -32,7 +33,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for how each part works.
 |---|---|---|
 | **Compare** | Which site, which date? | A GO / CHECK / NO-GO scorecard for each starred site (sunlight, longest darkness, Earth link, longest outage, what happens next) and the site × arrival-date matrix, with dates that fail the profile dimmed |
 | **Windows** | When can we land? | Every touchdown hour with the Sun at a usable angle for the cameras, station contact through descent and a stay that meets the profile; Gantt chart, table, calendar (.ics) export |
-| **Site** | What happens there? | 360° exact horizon panorama with true-size Sun and Earth, the stay timeline, a live countdown to the next sunset, Earthset and loss of signal; tabs for the numbers, saved plans, schedule slips, landing-zone slope, minimum mast, station passes and 19-year context |
+| **Site** | What happens there? | A *Water ice nearby* banner with a 5 km map of permanently shadowed ground, the 360° exact horizon panorama with true-size Sun and Earth, the stay timeline, a live countdown to the next sunset, Earthset and loss of signal; tabs for the numbers, saved plans, schedule slips, landing-zone slope, minimum mast, station passes and 19-year context |
 | **Map** | Where does the light fall? | The south pole rendered on the GPU from LOLA terrain, every pixel ray-traced toward the SPICE Sun and Earth (shadows with penumbrae, ground that sees Earth), 20 m detail when zoomed; "Over the stay" integrates a whole stay for every 120 m cell of a region |
 
 **Export** gives a printable one-page mission brief, GeoJSON, an STK horizon mask, landing windows (.ics) and CSVs. **Methods & validation** (in the ⋯ menu) shows the automated tests, what the tool is *not*, and data provenance.

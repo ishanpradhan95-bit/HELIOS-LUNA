@@ -1,0 +1,9 @@
+{
+ "source": "PGDA AVGVISIB_85S_060M_201608 (LOLA, Mazarico et al. 2011): cells with zero average Sun visibility",
+ "n": 2529,
+ "cell_m": 120,
+ "half_extent_m": 151740.0,
+ "rule": "120 m cell is PSR when >= 3 of 4 60 m cells have average Sun visibility 0",
+ "psr_cells": 651152,
+ "psr_km2": 9376.6
+}
