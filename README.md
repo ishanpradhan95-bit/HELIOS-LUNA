@@ -1,5 +1,7 @@
 # HELIOS·LUNA: Lunar Landing Site Navigator
 
+Project live at https://helios-luna-ls.vercel.app/ and https://ishanpradhan95-bit.github.io/HELIOS-LUNA/
+
 NASA Space Apps Challenge 2026 · *Compare lunar south-pole landing sites and dates; see the Sun and Earth against the real horizon; assess power and direct-to-Earth windows.*
 
 Pick a site and a date to see your week on the Moon: when you have power, when you can talk to Earth, and how sure we are. If it doesn't work out, say what the mission needs and it finds where, when and how tall.
